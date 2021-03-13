@@ -1,49 +1,25 @@
 name: mots_tracker
 channels:
-  - defaults
   - conda-forge
-  - pytorch
-  # - fastai
+  - defaults
+  - open3d-admin
 dependencies:
-  - python>=3.6
-  - pip
-  # BASICS
-  - numpy
-  - scipy
-  - pandas
-  - tqdm
   - click
+  - filterpy==1.4.5
   - ipython
-  # VISUALIZATION
-  - matplotlib
-  - seaborn
-  # - altair
-  # - yellowbrick
-  # ML, STATS & DEEP LEARNING
-  # - statsmodels
-  # - scikit-learn
-  # - sktime
-  # - tslearn
-  # - xgboost
-  # - catboost
-  # - lightgbm
-  # - pytorch
-  # - fastai  # activate fastai channel above!
-  # - tensorflow
-  # - keras
-  # - spacy
-  # OTHER TOOLS
-  # - optuna
-  # - dask
+  - matplotlib==3.3.3
+  - nb_conda
+  - numpy>=1.13.3
+  - opencv>=4.1.0.25
+  - open3d==0.9.0
+  - Pillow==8.0.1
+  - pip
+  - pycocotools==2.0.2
+  - python>=3.6
+  - scipy
   - pip:
-     - -e .  # install git checkout of mots_tracker in editable mode
-     # add here only pip-packages that are not available in conda/conda-forge! E.g.:
-     # - icecream
-     # - jax
-     # - numpyro
-     # - funsor
-     # - neptune-client
-     # - neptune-contrib
+     - -e .
+     - bbox==0.9.2
 
   # DEVELOPMENT ONLY PACKAGES (could also be kept in a separate environment file)
   - jupyterlab
