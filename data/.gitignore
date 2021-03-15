@@ -4,5 +4,6 @@
 !.gitignore
 !raw
 !external
+!output
 !preprocessed
 !interim

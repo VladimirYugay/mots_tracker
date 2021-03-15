@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 @click.command()
 @click.argument("lag", default=0)
 @click.argument("mots_path", default="/home/vy/university/thesis/datasets/MOTS/")
-@click.argument("output_path", default="../data/output/test")
+@click.argument("output_path", default="./data/output/test")
 @click.argument("phase", default="train")
 @click.option(
     "-rc",
