@@ -1,0 +1,5 @@
+{
+  "max_age": 1,
+  "min_hits": 3,
+  "threshold": 0.3
+}

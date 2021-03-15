@@ -1,0 +1,10 @@
+{
+  "depth_path": "depth_diw_416_128",
+  "resize_shape": [416, 128],
+  "read_masks": true,
+  "read_boxes": true,
+  "seq_ids": ["MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"],
+  "bbs_file_name": "gt_bb.txt",
+  "masks_file_name": "gt.txt",
+  "egomotion_path": "egomotion_ootb"
+}
