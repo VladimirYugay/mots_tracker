@@ -12,7 +12,7 @@ import numpy as np
 import mots_tracker
 from mots_tracker import utils
 from mots_tracker.readers import MOTSReader
-from mots_tracker.trackers import BBox2dTracker
+from mots_tracker.trackers import MedianTracker
 from mots_tracker.vis_utils import M_COLORS
 
 _logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ _logger = logging.getLogger(__name__)
     "-tc",
     "--tracker_config",
     "tracker_cfg_path",
-    default="./configs/tracker_configs/bbox2d_tracker_config.json",
+    default="./configs/tracker_configs/median_tracker_config.json",
     type=click.Path(exists=True),
     help="path to tracker config file",
 )
@@ -90,7 +90,7 @@ def main(
         intrinsics = reader.sequence_info[seq]["intrinsics"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
-        mot_tracker = BBox2dTracker(*tracker_args.values())
+        mot_tracker = MedianTracker(*tracker_args.values())
         out_file = open(os.path.join(output_path, "{}.txt".format(seq)), "w")
         logging.log(log_level, "Processing %s." % seq)
         for frame in range(reader.sequence_info[seq]["length"]):
@@ -119,7 +119,7 @@ def main(
 
             trackers = mot_tracker.update(sample, intrinsics)
 
-            for (_, box, idx) in trackers:
+            for (_, _, box, idx) in trackers:
                 state = utils.resize_boxes(
                     box[None, :], (416, 128), (orig_width, orig_height)
                 )[0]
