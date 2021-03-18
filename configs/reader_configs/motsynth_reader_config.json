@@ -1,0 +1,7 @@
+{
+    "read_boxes": true,
+    "read_masks": true,
+    "resize_shape": null,
+    "depth_path": null,
+    "egomotion_path": null
+}
