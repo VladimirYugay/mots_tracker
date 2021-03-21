@@ -38,6 +38,22 @@ def resize_boxes(boxes, old_shape, new_shape):
     return np.asarray(boxes, dtype=np.uint64)
 
 
+def scale_intrinsics(intrinsics, old_shape, new_shape):
+    """Scales intrinsics based on the image size change
+    Args:
+        intrinsics (ndarray): intrinsics matrix
+        old_shape (tuple): old image dimensions  (hxw)
+        new_shape (tuple): new image dimensions  (hxw)
+    Returns:
+        intrinsics (ndarray): rescaled intrinsics
+    """
+    intrinsics = intrinsics.copy()
+    intrinsics = np.asarray(intrinsics, dtype=np.float64)
+    intrinsics[0, :] *= new_shape[0] / old_shape[0]
+    intrinsics[1, :] *= new_shape[1] / old_shape[1]
+    return intrinsics
+
+
 def patch_boxes(image, boxes):
     """Creates image patches with only box regions visible
     Args:

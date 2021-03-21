@@ -71,11 +71,13 @@ class MOTSynthReader(object):
             depth = None  # not implemented
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
-        intrinsics = INTRINSICS.copy()
+        intrinsics = INTRINSICS
         if self.config["resize_shape"] is not None:
             width, height = image.size
-            intrinsics[0, :] *= self.config["resize_shape"][0] / height
-            intrinsics[1, :] *= self.config["resize_shape"][1] / width
+            intrinsics = utils.scale_intrinsics(
+                intrinsics, (height, width), self.config["resize_shape"]
+            )
+            np.set_printoptions(suppress=True, precision=3)
             if boxes is not None:
                 boxes = utils.resize_boxes(
                     boxes, image.size, self.config["resize_shape"]
@@ -147,14 +149,10 @@ class MOTSynthReader(object):
         Args:
              seq_id (str): sequence id in 3-digit format
         """
-        self.cache = {
-            seq_id: seq_id,
-            "img_names": sorted(
-                reader_helpers.read_file_names(
-                    self.root_path / "frames" / seq_id / "rgb"
-                )
-            ),
-        }
+        imgs_path = self.root_path / "frames" / seq_id / "rgb"
+        img_names = reader_helpers.read_file_names(imgs_path)
+        img_names.sort()
+        self.cache = {seq_id: seq_id, "img_names": img_names}
         if self.config["read_boxes"]:
             bb_path = self.gt_path / "bb_annotations" / "{}.txt".format(seq_id)
             self.cache["boxes"] = read_mot_bb_file(str(bb_path))
