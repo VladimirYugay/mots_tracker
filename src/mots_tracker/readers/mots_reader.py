@@ -20,14 +20,18 @@ DEFAULT_CONFIG = {
     "masks_file_name": "gt.txt",
     "egomotion_path": "egomotion_ootb",
 }
-
-# estimated with diw mots from scratch for 150 epochs via sequence overfitting
+DEFAULT_INTRINSICS = np.array(
+    [[1224.369, 0, 925.2], [0, 674.325, 581.681], [0, 0, 1]]
+)  # thumbnail
 INTRINSICS = {
-    "MOTS20-02": np.array([[265.28, 0, 200.46], [0, 79.92, 68.94], [0, 0, 1]]),
-    # 'MOTS20-05': np.array([[254.12, 0, 194.02], [0 ,  89.53,  88.2 ], [0, 0, 1]]),
-    "MOTS20-05": np.array([[307, 0, 200], [0, 130, 59], [0, 0, 1]]),  # scaled GT
-    "MOTS20-09": np.array([[273.24, 0, 179.34], [0, 81.82, 61.92], [0, 0, 1]]),
-    "MOTS20-11": np.array([[257.43, 0.0, 211.00], [0.0, 117.97, 69.64], [0, 0, 1]]),
+    "MOTS20-02": DEFAULT_INTRINSICS,  # gt unknown
+    "MOTS20-05": np.array([[501.167, 0, 307.514], [0, 501.049, 229.744], [0, 0, 1]]),
+    "MOTS20-09": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOTS20-11": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOTS20-01": DEFAULT_INTRINSICS,  # gt unknown
+    "MOTS20-06": np.array([[499.759, 0, 307.488], [0, 500.335, 230.462], [0, 0, 1]]),
+    "MOTS20-07": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOTS20-12": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
 }
 
 
@@ -75,31 +79,29 @@ class MOTSReader(object):
             )
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
+        intrinsics = self.sequence_info[seq_id]["intrinsics"].copy()
         if self.config["resize_shape"] is not None:
-            boxes = (
-                utils.resize_boxes(boxes, image.size, self.config["resize_shape"])
-                if boxes is not None
-                else None
+            print((image.size[1], image.size[0]), self.config["resize_shape"])
+            intrinsics = utils.scale_intrinsics(
+                intrinsics, image.size, self.config["resize_shape"]
             )
-            image = (
-                utils.resize_img(image, self.config["resize_shape"])
-                if image is not None
-                else None
-            )
-            masks = (
-                utils.resize_masks(masks, self.config["resize_shape"])
-                if masks is not None
-                else None
-            )
+            if boxes is not None:
+                boxes = utils.resize_boxes(
+                    boxes, image.size, self.config["resize_shape"]
+                )
+            if image is not None:
+                image = utils.resize_img(image, self.config["resize_shape"])
+            if masks is not None:
+                masks = utils.resize_masks(masks, self.config["resize_shape"])
         return {
             "boxes": boxes,
             "depth": depth,
             "box_ids": box_ids,
             "image": np.array(image),
-            "masks": masks.astype(np.uint8),
+            "masks": masks.astype(np.uint8) if masks is not None else masks,
             "raw_masks": raw_masks,
             "mask_ids": mask_ids,
-            "intrinsics": self.sequence_info[seq_id]["intrinsics"],
+            "intrinsics": intrinsics,
             "egomotion": egomotion,
         }
 
@@ -210,8 +212,6 @@ class MOTSReader(object):
                 "img_names": sorted(
                     [reader_helpers.path2id(path) for path in img_path.glob("*.jpg")]
                 ),
-                "intrinsics": INTRINSICS[idx]
-                if idx in INTRINSICS.keys()
-                else INTRINSICS["MOTS20-02"],
+                "intrinsics": INTRINSICS[idx],
             }
         return sequence_info
