@@ -72,16 +72,14 @@ class MOTSReader(object):
             masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
         image = utils.load_image(img_path)
         if self.config["depth_path"] is not None:
-            depth = np.load(
-                reader_helpers.id2depthpath(
-                    seq_id, img_name, self.root_path, self.config["depth_path"]
-                )
+            depth_path = reader_helpers.id2depthpath(
+                seq_id, img_name, self.root_path, self.config["depth_path"]
             )
+            depth = np.load(depth_path)
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
         intrinsics = self.sequence_info[seq_id]["intrinsics"].copy()
         if self.config["resize_shape"] is not None:
-            print((image.size[1], image.size[0]), self.config["resize_shape"])
             intrinsics = utils.scale_intrinsics(
                 intrinsics, image.size, self.config["resize_shape"]
             )
