@@ -29,12 +29,13 @@ def resize_masks(masks, img_shape):
 def resize_boxes(boxes, old_shape, new_shape):
     """ resizes bounding boxes based on old and new shapes of the image """
     boxes = boxes.copy()
+    boxes = np.asarray(boxes, dtype=np.float64)
     boxes[:, [0, 2]] *= new_shape[0] / old_shape[0]
     boxes[:, [1, 3]] *= new_shape[1] / old_shape[1]
     # sometimes boxes are outside of the image, we need to clip them
     boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, new_shape[0] - 1)
     boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, new_shape[1] - 1)
-    return boxes
+    return np.asarray(boxes, dtype=np.uint64)
 
 
 def patch_boxes(image, boxes):
