@@ -83,7 +83,8 @@ def main(input_path, output_path, chessboard_size, square_size, display):
     )
     np.set_printoptions(suppress=True, precision=3)
     logging.log(logging.INFO, intrinsics)
-    np.save(str(output_path / "intrinsics.npy"), intrinsics)
+    intrinsics = np.around(intrinsics, 3)
+    np.savetxt(str(output_path / "intrinsics.txt"), intrinsics, fmt="%s")
     logging.log(logging.INFO, "Saved to {}".format(output_path))
 
 
