@@ -18,6 +18,7 @@ import numpy as np
 
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
+from mots_tracker.readers.reader_helpers import read_mot_bb_file, read_mot_seg_file
 
 DEFAULT_CONFIG = {
     "read_boxes": False,
@@ -151,38 +152,12 @@ class MOTSynthReader(object):
             ),
         }
         if self.config["read_boxes"]:
-            bb_file = open(
-                self.gt_path / "bb_annotations" / "{}.txt".format(seq_id), "r"
-            )
-            bb_lines = bb_file.readlines()
-            bb_data = np.zeros(
-                (len(bb_lines), 6), dtype=np.uint64
-            )  # all coordinates are integers
-            for i, line in enumerate(bb_lines):
-                frame_id, ped_id, x, y, w, h = line.split(",")[:6]
-                bb_data[i, ...] = np.array(
-                    [frame_id, ped_id, x, y, w, h], dtype=np.float64
-                )
-            self.cache["boxes"] = bb_data
-            bb_file.close()
+            bb_path = self.gt_path / "bb_annotations" / "{}.txt".format(seq_id)
+            self.cache["boxes"] = read_mot_bb_file(str(bb_path))
 
         if self.config["read_masks"]:
-            # we can't use np.loadtxt due to memory explosion
-            # but still need numpy indexing later
-            mask_file = open(
-                self.gt_path / "mask_annotations" / "{}.txt".format(seq_id), "r"
-            )
-            mask_lines = mask_file.readlines()
-            mask_data = np.zeros((len(mask_lines), 4), dtype=np.uint64)
-            mask_strings = [None] * len(mask_lines)
-            for i, line in enumerate(mask_lines):
-                frame_id, ped_id, _, height, width, mask_string = line.split(" ")
-                mask_data[i, ...] = np.array(
-                    [frame_id, ped_id, height, width], dtype=np.uint64
-                )
-                mask_strings[i] = mask_string.strip()
-            self.cache["masks"] = (mask_data, mask_strings)
-            mask_file.close()
+            mask_path = self.gt_path / "mask_annotations" / "{}.txt".format(seq_id)
+            self.cache["masks"] = read_mot_seg_file(mask_path)
 
     def _read_egomotion(self, seq_id, frame_id):
         """read rotation and translation of the camera from (frame_id - 1) to (frame_id)

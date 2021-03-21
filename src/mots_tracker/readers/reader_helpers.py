@@ -1,4 +1,5 @@
 """ Module with MOTS2020 data reader helper functions """
+import numpy as np
 
 
 def id2imgpath(seq_idx, img_idx, input_dir):
@@ -48,3 +49,42 @@ def read_file_names(path):
         list(str): file names
     """
     return [str(file_name) for file_name in path.glob("**/*")]
+
+
+def read_mot_bb_file(path):
+    """Reads bounding box mot file
+    Args:
+        path (str): path to the ground truth file
+    Returns:
+        bb_data (ndarray): array in [frame_id, ped_id, x, y, w, h] format
+    """
+    bb_file = open(path, "r")
+    bb_lines = bb_file.readlines()
+    bb_data = np.zeros(
+        (len(bb_lines), 6), dtype=np.uint64
+    )  # all coordinates are integers
+    for i, line in enumerate(bb_lines):
+        frame_id, ped_id, x, y, w, h = line.split(",")[:6]
+        bb_data[i, ...] = np.array([frame_id, ped_id, x, y, w, h], dtype=np.float64)
+    bb_file.close()
+    return bb_data
+
+
+def read_mot_seg_file(path):
+    """Reads segmentation mot file
+    Args:
+        path (str): path to the ground truth file
+    Returns:
+        seg_data (ndarray): array in [frame_id, ped_id, h, w] format
+        mask_strings (list): list of raw coco masks strings
+    """
+    seg_file = open(path, "r")
+    seg_lines = seg_file.readlines()
+    seg_data = np.zeros((len(seg_lines), 4), dtype=np.uint64)
+    mask_strings = [None] * len(seg_lines)
+    for i, line in enumerate(seg_lines):
+        frame_id, ped_id, _, height, width, mask_string = line.split(" ")
+        seg_data[i, ...] = np.array([frame_id, ped_id, height, width], dtype=np.uint64)
+        mask_strings[i] = mask_string.strip()
+    seg_file.close()
+    return (seg_data, mask_strings)
