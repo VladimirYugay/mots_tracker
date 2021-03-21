@@ -29,7 +29,7 @@ DEFAULT_CONFIG = {
 }
 
 # taken from https://github.com/fabbrimatteo/JTA-Dataset
-INTRINSICS = np.array([[1158, 0, 960], [0, 1158, 540], [0, 0, 1]])
+INTRINSICS = np.array([[1158, 0, 960], [0, 1158, 540], [0, 0, 1]], dtype=np.float64)
 
 
 class MOTSynthReader(object):
@@ -71,7 +71,11 @@ class MOTSynthReader(object):
             depth = None  # not implemented
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
+        intrinsics = INTRINSICS.copy()
         if self.config["resize_shape"] is not None:
+            width, height = image.size
+            intrinsics[0, :] *= self.config["resize_shape"][0] / height
+            intrinsics[1, :] *= self.config["resize_shape"][1] / width
             if boxes is not None:
                 boxes = utils.resize_boxes(
                     boxes, image.size, self.config["resize_shape"]
@@ -88,7 +92,7 @@ class MOTSynthReader(object):
             "masks": masks.astype(np.uint8) if masks is not None else masks,
             "raw_masks": raw_masks,
             "mask_ids": mask_ids,
-            "intrinsics": INTRINSICS,
+            "intrinsics": intrinsics,
             "egomotion": egomotion,
         }
 
