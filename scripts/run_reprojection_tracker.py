@@ -88,7 +88,6 @@ def main(
     for seq in reader.sequence_info.keys():
         orig_width = reader.sequence_info[seq]["img_width"]
         orig_height = reader.sequence_info[seq]["img_height"]
-        intrinsics = reader.sequence_info[seq]["intrinsics"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
         mot_tracker = MedianProjectionTracker(*tracker_args.values())
@@ -137,7 +136,7 @@ def main(
                     display_img[mask == 1] = color
                 axis[3].imshow(display_img)
 
-            trackers = mot_tracker.update(sample, intrinsics)
+            trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
                 state = utils.resize_boxes(
