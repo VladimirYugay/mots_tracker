@@ -108,15 +108,18 @@ class MOTSynthReader(object):
         """
         # data format: frame_id, obj_id, class_id h, w, mask string
         masks_data, mask_strings = self.cache["masks"]
+        masks_data = masks_data.copy()
+        valid_mask = masks_data[:, 0] == frame_id
+        relevant_ids = np.where(valid_mask)[0]
+        masks_data = masks_data[valid_mask]
         height, width = masks_data[0, 2], masks_data[0, 3]
-        relevant_ids = np.where(masks_data[:, 0] == frame_id)[0]
         raw_masks = [None] * relevant_ids.shape[0]
         masks = np.zeros((relevant_ids.shape[0], height, width), dtype=np.uint8)
         for i, rel_id in enumerate(relevant_ids):
             masks[i, ...] = utils.decode_mask(height, width, mask_strings[rel_id])
             raw_masks[i] = mask_strings[rel_id]
         # see notation here: https://www.vision.rwth-aachen.de/page/mots
-        return masks, relevant_ids, raw_masks
+        return masks, masks_data[:, 1].astype(np.uint64), raw_masks
 
     def _read_bb(self, frame_id):
         """read all bounding boxes for a given frame MOTS format
