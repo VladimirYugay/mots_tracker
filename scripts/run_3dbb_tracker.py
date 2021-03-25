@@ -19,10 +19,21 @@ _logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("lag", default=0)
-@click.argument("mots_path", default="/home/vy/university/thesis/datasets/MOTS/")
-@click.argument("output_path", default="./data/output/test")
-@click.argument("phase", default="train")
+@click.option("--lag", default=0)
+@click.option(
+    "--mots_path",
+    "mots_path",
+    default="/home/vy/university/thesis/datasets/MOTS/",
+    type=click.Path(exists=True),
+    help="path to mots dataset",
+)
+@click.option(
+    "--output_path",
+    "output_path",
+    default="./data/output/test",
+    help="path to tracker outputs",
+)
+@click.option("--phase", default="train")
 @click.option(
     "-rc",
     "--reader_config",
@@ -87,7 +98,6 @@ def main(
     for seq in reader.sequence_info.keys():
         orig_width = reader.sequence_info[seq]["img_width"]
         orig_height = reader.sequence_info[seq]["img_height"]
-        intrinsics = reader.sequence_info[seq]["intrinsics"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
         mot_tracker = BBox3dTracker(*tracker_args.values())
@@ -117,7 +127,7 @@ def main(
                         )
                     )
 
-            trackers = mot_tracker.update(sample, intrinsics)
+            trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
                 state = utils.resize_boxes(
