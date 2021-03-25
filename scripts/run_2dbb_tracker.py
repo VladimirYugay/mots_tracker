@@ -19,10 +19,21 @@ _logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("lag", default=0)
-@click.argument("mots_path", default="/home/vy/university/thesis/datasets/MOTS/")
-@click.argument("output_path", default="./data/output/test")
-@click.argument("phase", default="train")
+@click.option("--lag", default=0)
+@click.option(
+    "--mots_path",
+    "mots_path",
+    default="/home/vy/university/thesis/datasets/MOTS/",
+    type=click.Path(exists=True),
+    help="path to mots dataset",
+)
+@click.option(
+    "--output_path",
+    "output_path",
+    default="./data/output/test",
+    help="path to tracker outputs",
+)
+@click.option("--phase", default="train")
 @click.option(
     "-rc",
     "--reader_config",
