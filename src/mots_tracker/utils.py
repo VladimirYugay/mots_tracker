@@ -4,7 +4,7 @@ import open3d as o3d
 from PIL import Image
 from pycocotools import mask as rletools
 
-from mots_tracker.vis_utils import colorize_patches
+from mots_tracker import vis_utils
 
 
 def resize_img(img, img_shape):
@@ -204,7 +204,9 @@ def compute_mask_clouds(sample, filter_func=None, color_weight=None):
     intrinsics = sample["intrinsics"]
     img_patches = patch_masks(sample["image"], sample["masks"])
     if color_weight is not None:
-        img_patches = colorize_patches(img_patches, color_weight, sample["box_ids"])
+        img_patches = vis_utils.colorize_patches(
+            img_patches, color_weight, sample["box_ids"]
+        )
     depth_patches = patch_masks(sample["depth"], sample["masks"])
     return [
         rgbd2ptcloud(img_patch, depth_patch, intrinsics, filter_func)
