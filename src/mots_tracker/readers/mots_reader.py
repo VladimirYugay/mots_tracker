@@ -119,17 +119,19 @@ class MOTSReader(object):
             )
         # data format: frame_id, obj_id, class_di h, w, mask string
         masks_data, mask_strings = self.seg_data_cache[seq_id]
+        masks_data = masks_data.copy()
         masks_data[:, 1] %= 1000
-        masks_data = masks_data[masks_data[:, 1] > 0]  # filter out invalid masks
+        valid_mask = (masks_data[:, 0] == frame_id) & (masks_data[:, 1] > 0)
+        relevant_ids = np.where(valid_mask)[0]
+        masks_data = masks_data[valid_mask]
         height, width = masks_data[0, 2], masks_data[0, 3]
-        relevant_ids = np.where(masks_data[:, 0] == frame_id)[0]
         raw_masks = [None] * relevant_ids.shape[0]
         masks = np.zeros((relevant_ids.shape[0], height, width), dtype=np.uint8)
         for i, rel_id in enumerate(relevant_ids):
             masks[i, ...] = utils.decode_mask(height, width, mask_strings[rel_id])
             raw_masks[i] = mask_strings[rel_id]
         # see notation here: https://www.vision.rwth-aachen.de/page/mots
-        return masks, relevant_ids, raw_masks
+        return masks, masks_data[:, 1].astype(np.uint64), raw_masks
 
     def _read_egomotion(self, seq_id, frame_id):
         """read rotation and translation of the camera from (frame_id - 1) to (frame_id)
