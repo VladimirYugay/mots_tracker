@@ -38,7 +38,7 @@ _logger = logging.getLogger(__name__)
 )
 @click.version_option(mots_tracker.__version__)
 def main(data_dir, output_dir, proportions):
-    print(proportions)
+    print("Splitting sequences in proportions: {}".format(proportions))
     np.random.seed(42)
     seq_ids = []
     for seq_id in (Path(data_dir) / "frames").glob("*"):
