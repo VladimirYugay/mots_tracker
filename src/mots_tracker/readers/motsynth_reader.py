@@ -142,9 +142,9 @@ class MOTSynthReader(object):
         for info_file_path in (self.gt_path / "sequences_info").glob("**/*"):
             parser = ConfigParser()
             parser.read(str(info_file_path))
-            sequence_info[parser.get("Sequence", "name")] = parser.getint(
-                "Sequence", "seqLength"
-            )
+            sequence_info[parser.get("Sequence", "name")] = {
+                "length": parser.getint("Sequence", "seqLength")
+            }
         return sequence_info
 
     def _init_cache(self, seq_id):
