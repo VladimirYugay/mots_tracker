@@ -77,7 +77,7 @@ def main(input_path, output_path):
                 height, width = annotation["segmentation"]["size"]
                 mask_string = annotation["segmentation"]["counts"]
                 mask = decode_mask(height, width, mask_string)
-                if mask.sum() == 0 or box[2] > box[3]:  # empty mask or bb of a car
+                if mask.sum() == 0:  # empty mask
                     continue
                 logging.log(
                     logging.INFO,
