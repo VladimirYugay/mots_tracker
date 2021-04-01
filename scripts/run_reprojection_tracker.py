@@ -21,10 +21,21 @@ _logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("lag", default=0)
-@click.argument("mots_path", default="/home/vy/university/thesis/datasets/MOTS/")
-@click.argument("output_path", default="./data/output/test")
-@click.argument("phase", default="train")
+@click.option("--lag", default=0)
+@click.option(
+    "--mots_path",
+    "mots_path",
+    default="/home/vy/university/thesis/datasets/MOTS/",
+    type=click.Path(exists=True),
+    help="path to mots dataset",
+)
+@click.option(
+    "--output_path",
+    "output_path",
+    default="./data/output/test",
+    help="path to tracker outputs",
+)
+@click.option("--phase", default="train")
 @click.option(
     "-rc",
     "--reader_config",
@@ -77,7 +88,8 @@ def main(
     if display:
         plt.ion()
         fig = plt.figure()
-        axis = [fig.add_subplot(221 + i) for i in range(4)]
+        axis = [fig.add_subplot(321 + i) for i in range(4)]
+        traj_axis = fig.add_subplot(325, projection="3d")
 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -86,6 +98,8 @@ def main(
         reader_args = json.load(reader_config_file)
     reader = MOTSReader(os.path.join(mots_path, phase), reader_args)
     for seq in reader.sequence_info.keys():
+        p_0 = np.array([0.0, 0.0, 0.0, 1.0])
+        poses = np.array([0.0, 0.0, 0.0, 1.0])
         orig_width = reader.sequence_info[seq]["img_width"]
         orig_height = reader.sequence_info[seq]["img_height"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
@@ -121,7 +135,7 @@ def main(
                 for proj_id, proj in enumerate(mot_tracker.projections):
                     color = np.asarray(
                         np.asarray(mcolors.to_rgb(M_COLORS[proj_id])) * 255,
-                        dtype=np.int,
+                        dtype=int,
                     )
                     display_img[proj == 1] = color
                 axis[2].imshow(display_img)
@@ -131,10 +145,16 @@ def main(
                 for mask_id, mask in enumerate(sample["masks"]):
                     color = np.asarray(
                         np.asarray(mcolors.to_rgb(M_COLORS[mask_id])) * 255,
-                        dtype=np.int,
+                        dtype=int,
                     )
                     display_img[mask == 1] = color
                 axis[3].imshow(display_img)
+
+                p_acc = mot_tracker.accumulated_egomotion.dot(p_0)
+                poses = np.vstack((poses, p_acc))
+                traj_axis.scatter(
+                    poses[:, 0], poses[:, 1], poses[:, 2], c=np.arange(poses.shape[0])
+                )
 
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
@@ -173,6 +193,7 @@ def main(
                 plt.draw()
                 for ax in axis:
                     ax.cla()
+                traj_axis.cla()
 
         out_file.close()
 

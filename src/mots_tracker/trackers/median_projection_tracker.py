@@ -1,5 +1,6 @@
 """ Class tracking medians based on projected IoU """
 import numpy as np
+import open3d as o3d
 
 from mots_tracker import utils
 from mots_tracker.kalman_filters import MedianKalmanFilter
@@ -18,6 +19,7 @@ class MedianProjectionTracker(BaseTracker):
         )
         self.representation_size = 3  # x, y, z coordinates of a median
         self.projections = np.empty((0, 3))
+        self.accumulated_egomotion = np.identity(4)
 
     def update(self, sample, intrinsics):
         """ updates the state of the tracker """
@@ -35,7 +37,7 @@ class MedianProjectionTracker(BaseTracker):
         return self.filter_trackers()
 
     def associate_detections_to_trackers(self, detections, trackers_predictions):
-        """ Assigns detections to tracked object (both represented as bounding boxes) """
+        """ Assigns detections to tracked object """
         if len(trackers_predictions[0]) == 0:
             return (
                 np.empty((0, 2), dtype=int),
@@ -49,17 +51,21 @@ class MedianProjectionTracker(BaseTracker):
 
         # rotate, translate, project tracker point clouds
         dimensions = detection_masks[0].shape
-        tracker_translated_clouds = [
+        # accumulate egomotion
+        self.accumulated_egomotion = self.accumulated_egomotion.dot(
+            np.linalg.inv(egomotion)
+        )
+        transformed_tracker_clouds = [
+            o3d.geometry.PointCloud(cloud) for cloud in tracker_clouds
+        ]
+        for cloud, velocity in zip(transformed_tracker_clouds, tracker_velocities):
             cloud.translate(velocity)
-            for cloud, velocity in zip(tracker_clouds, tracker_velocities)
-        ]
-        tracker_transformed_clouds = [
-            cloud.transform(egomotion) for cloud in tracker_translated_clouds
-        ]
+        for cloud in transformed_tracker_clouds:
+            cloud.transform(self.accumulated_egomotion)
         projections = np.array(
             [
                 utils.cloud2img(cloud, dimensions, intrinsic)
-                for cloud in tracker_transformed_clouds
+                for cloud in transformed_tracker_clouds
             ]
         )
         self.projections = projections
