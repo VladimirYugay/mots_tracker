@@ -25,7 +25,7 @@ if __name__ == "__main__":
     root_path = Path("/home/vy/university/thesis/datasets/KITTI")
     config = {"depth_path": "kitti"}
     reader = KITTIReader(root_path / "training", config)
-    seq_id, frame_id = 15, 100
+    seq_id, frame_id = "0015", 100
     sample = reader.read_sample(seq_id, frame_id)
     profile_resizing(sample)
     # profile_depth(sample)

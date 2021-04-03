@@ -44,9 +44,9 @@ class KITTIReader(object):
         if self.config["depth_path"] is not None:
             depth_path = reader_helpers.id2depthpath(
                 self.config["depth_path"],
-                "{:06d}".format(seq_id),
+                "{:06d}".format(frame_id),
                 self.root_path,
-                "{:04d}".format(seq_id),
+                seq_id,
             )
             depth = np.load(depth_path)
         if self.config["resize_shape"] is not None:
@@ -89,12 +89,12 @@ class KITTIReader(object):
         Args:
              seq_id (str): sequence id in 3-digit format
         """
-        img_path = self.root_path / "image_02" / "{:04d}".format(seq_id)
+        img_path = self.root_path / "image_02" / seq_id
         img_names = reader_helpers.read_file_names(img_path)
         img_names.sort()
-        bb_path = self.root_path / "label_02" / "{:04d}".format(seq_id)
+        bb_path = self.root_path / "label_02" / seq_id
         bb_path = str(bb_path) + ".txt"
-        calib_path = self.root_path / "calib" / "{:04d}".format(seq_id)
+        calib_path = self.root_path / "calib" / seq_id
         calib_path = str(calib_path) + ".txt"
         self.cache = {
             seq_id: seq_id,
@@ -104,10 +104,15 @@ class KITTIReader(object):
         }
 
     def _init_sequence_info(self):
+        """ Provides info about each of the sequences sequence """
         sequence_info = {}
         image_path = self.root_path / "image_02"
         for seq_id in image_path.iterdir():
             num_files = len(read_file_names(seq_id))
             seq_name = seq_id.parts[-1]
-            sequence_info[seq_name] = {"length": num_files}
+            sequence_info[seq_name] = {
+                "length": num_files,
+                "img_width": 1242,
+                "img_height": 375,
+            }
         return sequence_info
