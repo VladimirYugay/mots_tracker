@@ -80,7 +80,7 @@ def main(data_dir, ann_dir, output_dir):
     (output_dir / "test").mkdir(parents=True, exist_ok=True)
 
     for seq_id in reader.sequence_info.keys():
-        for i in range(1, 5):
+        for i in range(1, reader.sequence_info[seq_id]["length"] - 1):
             print("Processing sequence: {}, frame: {}".format(seq_id, i))
             prev_sample, cur_sample, next_sample = (
                 reader.read_sample(seq_id, i - 1),
