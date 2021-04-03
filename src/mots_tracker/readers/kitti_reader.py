@@ -34,6 +34,8 @@ class KITTIReader(object):
         if seq_id not in self.cache:
             self._init_cache(seq_id)
 
+        intrinsics = self.cache["intrinsics"]
+        intrinsics = intrinsics[0][:3, :3]  # temporal fix until clarification
         boxes, box_ids, image, depth, egomotion = [None] * 5
         img_path = self.cache["img_names"][frame_id]
         image = utils.load_image(img_path)
@@ -46,14 +48,24 @@ class KITTIReader(object):
                 self.root_path,
                 "{:04d}".format(seq_id),
             )
-            print(depth_path)
             depth = np.load(depth_path)
+        if self.config["resize_shape"] is not None:
+            width, height = image.size
+            intrinsics = utils.scale_intrinsics(
+                intrinsics, (height, width), self.config["resize_shape"]
+            )
+            if boxes is not None:
+                boxes = utils.resize_boxes(
+                    boxes, image.size, self.config["resize_shape"]
+                )
+            if image is not None:
+                image = utils.resize_img(image, self.config["resize_shape"])
 
         return {
             "image": image,
             "boxes": boxes,
             "box_ids": box_ids,
-            "intrinsics": self.cache["intrinsics"],
+            "intrinsics": intrinsics,
             "depth": depth,
             "egomotion": egomotion,
         }
