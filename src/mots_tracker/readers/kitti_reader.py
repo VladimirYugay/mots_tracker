@@ -34,16 +34,28 @@ class KITTIReader(object):
         if seq_id not in self.cache:
             self._init_cache(seq_id)
 
+        boxes, box_ids, image, depth, egomotion = [None] * 5
         img_path = self.cache["img_names"][frame_id]
         image = utils.load_image(img_path)
         if self.config["read_boxes"]:
             boxes, box_ids = self._read_bb(frame_id)  # frames are 0 indexed
+        if self.config["depth_path"] is not None:
+            depth_path = reader_helpers.id2depthpath(
+                self.config["depth_path"],
+                "{:06d}".format(seq_id),
+                self.root_path,
+                "{:04d}".format(seq_id),
+            )
+            print(depth_path)
+            depth = np.load(depth_path)
 
         return {
             "image": image,
             "boxes": boxes,
             "box_ids": box_ids,
             "intrinsics": self.cache["intrinsics"],
+            "depth": depth,
+            "egomotion": egomotion,
         }
 
     def _read_bb(self, frame_id):
