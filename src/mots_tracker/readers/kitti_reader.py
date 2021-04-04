@@ -40,7 +40,7 @@ class KITTIReader(object):
         img_path = self.cache["img_names"][frame_id]
         image = utils.load_image(img_path)
         if self.config["read_boxes"]:
-            boxes, box_ids = self._read_bb(frame_id)  # frames are 0 indexed
+            boxes, box_ids, obj_types = self._read_bb(frame_id)  # frames are 0 indexed
         if self.config["depth_path"] is not None:
             depth_path = reader_helpers.id2depthpath(
                 self.config["depth_path"],
@@ -68,6 +68,7 @@ class KITTIReader(object):
             "intrinsics": intrinsics,
             "depth": depth,
             "egomotion": egomotion,
+            "obj_types": obj_types,
         }
 
     def _read_bb(self, frame_id):
@@ -76,13 +77,14 @@ class KITTIReader(object):
             seq_id (str): sequence id
             frame_id (int): frame id
         Returns:
-            boxes (ndarray), box_ids (ndarray): boxes with their ids
+            boxes (ndarray), box_ids (ndarray), boj_types: boxes with their
+            ids and types 1 - Car, 2 - Pedestrian
         """
         boxes = self.cache["box_data"].copy()
         frame_data = boxes[boxes[:, 0] == frame_id]
         box_ids = frame_data[:, 1].astype(np.uint64)
         frame_boxes = frame_data[:, [2, 3, 4, 5]]
-        return frame_boxes, box_ids
+        return frame_boxes, box_ids, frame_data[:, -1]
 
     def _init_cache(self, seq_id):
         """Initializes cache for a sequence

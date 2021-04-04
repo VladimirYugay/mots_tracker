@@ -56,7 +56,7 @@ def read_kitti_bb_file(path):
     Args:
         path (str): path to the ground truth file
     Returns:
-        bb_data (ndarray): array in [frame_id, ped_id, x1, y1, x2, y2] format
+        bb_data (ndarray): array in [frame_id, ped_id, x1, y1, x2, y2, obj_type] format
     """
     bb_file = open(path, "r")
     bb_lines = bb_file.readlines()
@@ -66,9 +66,13 @@ def read_kitti_bb_file(path):
         obj_type = parts[2]
         if obj_type not in ["Car", "Pedestrian"]:
             continue
+        if obj_type == "Car":
+            obj_type = 1
+        else:
+            obj_type = 2
         frame_id, ped_id = parts[:2]
         x1, y1, x2, y2 = parts[6:10]
-        bb_data.append([frame_id, ped_id, x1, y1, x2, y2])
+        bb_data.append([frame_id, ped_id, x1, y1, x2, y2, obj_type])
     bb_data = np.array(bb_data, dtype=np.float64)
     bb_file.close()
     return bb_data
