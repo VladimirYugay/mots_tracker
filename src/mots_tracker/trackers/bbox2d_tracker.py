@@ -20,6 +20,10 @@ class BBox2dTracker(BaseTracker):
         for i, box in enumerate(boxes):
             representations[i, :] = box
             info[i] = {"box": box}
+            if (
+                "obj_types" in sample
+            ):  # dirty fix for KITTI dataset, obj type needed for HOTA
+                info[i]["obj_type"] = sample["obj_types"][i]
         return representations, info
 
     def init_unmatched_trackers(self, unmatched_detections_ids, detections, info):
@@ -33,14 +37,21 @@ class BBox2dTracker(BaseTracker):
             if (trk.time_since_update < 1) and (
                 trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits
             ):
-                ret.append((trk.get_state()[0], trk.info["box"], trk.id + 1))
+                ret.append(
+                    (
+                        trk.get_state()[0],
+                        trk.info["box"],
+                        trk.id + 1,
+                        trk.info.get("obj_type", default=None),
+                    )
+                )
             i -= 1
             if trk.time_since_update > self.max_age:
                 self.trackers.pop(i)
         return ret
 
     def associate_detections_to_trackers(self, detections, trackers):
-        """ Assigns detections to tracked object (both represented as bounding boxes) """
+        """ Assigns detections to tracked object (both as bounding boxes) """
         if len(trackers) == 0:
             return (
                 np.empty((0, 2), dtype=int),

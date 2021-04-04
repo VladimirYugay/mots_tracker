@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import mots_tracker
-from mots_tracker import utils
-from mots_tracker.readers import MOTSReader
+from mots_tracker import readers, utils
 from mots_tracker.trackers import BBox2dTracker
 from mots_tracker.vis_utils import M_COLORS
 
@@ -21,11 +20,11 @@ _logger = logging.getLogger(__name__)
 @click.command()
 @click.option("--lag", default=0)
 @click.option(
-    "--mots_path",
+    "--data_path",
     "mots_path",
     default="/home/vy/university/thesis/datasets/MOTS/",
     type=click.Path(exists=True),
-    help="path to mots dataset",
+    help="Path to the dataset: MOTS, MOTSynth, KITTI",
 )
 @click.option(
     "--output_path",
@@ -35,8 +34,8 @@ _logger = logging.getLogger(__name__)
 )
 @click.option("--phase", default="train")
 @click.option(
-    "-rc",
-    "--reader_config",
+    "--rc",
+    "--reader_cfg_path",
     "reader_cfg_path",
     default="./configs/reader_configs/mots_reader_config.json",
     type=click.Path(exists=True),
@@ -44,7 +43,7 @@ _logger = logging.getLogger(__name__)
 )
 @click.option(
     "-tc",
-    "--tracker_config",
+    "--tracker_cfg_path",
     "tracker_cfg_path",
     default="./configs/tracker_configs/bbox2d_tracker_config.json",
     type=click.Path(exists=True),
@@ -94,18 +93,18 @@ def main(
 
     with open(str(reader_cfg_path), "r") as reader_config_file:
         reader_args = json.load(reader_config_file)
-    reader = MOTSReader(os.path.join(mots_path, phase), reader_args)
-    for seq in reader.sequence_info.keys():
+    reader = readers.KITTIReader(os.path.join(mots_path, phase), reader_args)
+    for seq in sorted(reader.sequence_info.keys()):
         orig_width = reader.sequence_info[seq]["img_width"]
         orig_height = reader.sequence_info[seq]["img_height"]
-        intrinsics = reader.sequence_info[seq]["intrinsics"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
         mot_tracker = BBox2dTracker(*tracker_args.values())
         out_file = open(os.path.join(output_path, "{}.txt".format(seq)), "w")
-        logging.log(log_level, "Processing %s." % seq)
         for frame in range(reader.sequence_info[seq]["length"]):
-            logging.log(log_level, "Processing frame {}".format(frame + 1))
+            logging.log(
+                log_level, "Processing sequence {}, frame {}".format(seq, frame + 1)
+            )
             sample = reader.read_sample(seq, frame)
             frame += 1
 
@@ -128,21 +127,31 @@ def main(
                         )
                     )
 
-            trackers = mot_tracker.update(sample, intrinsics)
+            trackers = mot_tracker.update(sample, sample["intrinsics"])
 
-            for (_, box, idx) in trackers:
+            for (_, box, idx, obj_type) in trackers:
                 state = utils.resize_boxes(
                     box[None, :], (416, 128), (orig_width, orig_height)
                 )[0]
+                # print(
+                #     "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
+                #     % (
+                #         frame,
+                #         idx,
+                #         state[0],
+                #         state[1],
+                #         state[2] - state[0],
+                #         state[3] - state[1],
+                #     ),
+                #     file=out_file,
+                # )
+                if obj_type == 1:
+                    obj_type = "Car"
+                else:
+                    obj_type = "Pedestrian"
                 print(
-                    "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
-                    % (
-                        frame,
-                        idx,
-                        state[0],
-                        state[1],
-                        state[2] - state[0],
-                        state[3] - state[1],
+                    "{} {} {} -1 -1 -1 {} {} {} {} -1 -1 -1 -1 -1 -1 -1".format(
+                        frame - 1, idx, obj_type, state[0], state[1], state[2], state[3]
                     ),
                     file=out_file,
                 )
