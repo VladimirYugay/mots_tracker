@@ -65,7 +65,7 @@ class MOTSynthReader(object):
         if self.config["read_boxes"]:
             boxes, box_ids = self._read_bb(frame_id + 1)
         if self.config["read_masks"]:
-            masks, mask_ids, raw_masks = self._read_seg_masks(frame_id + 1)
+            masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
         image = utils.load_image(img_path)
         if self.config["depth_path"] is not None:
             depth = None  # not implemented
@@ -77,7 +77,6 @@ class MOTSynthReader(object):
             intrinsics = utils.scale_intrinsics(
                 intrinsics, (height, width), self.config["resize_shape"]
             )
-            np.set_printoptions(suppress=True, precision=3)
             if boxes is not None:
                 boxes = utils.resize_boxes(
                     boxes, image.size, self.config["resize_shape"]
@@ -98,7 +97,7 @@ class MOTSynthReader(object):
             "egomotion": egomotion,
         }
 
-    def _read_seg_masks(self, frame_id):
+    def _read_seg_masks(self, seq_id, frame_id):
         """read all bounding boxes for a given frame
         Args:
             seq_id (str): sequence id
@@ -112,7 +111,8 @@ class MOTSynthReader(object):
         valid_mask = masks_data[:, 0] == frame_id
         relevant_ids = np.where(valid_mask)[0]
         masks_data = masks_data[valid_mask]
-        height, width = masks_data[0, 2], masks_data[0, 3]
+        height = self.sequence_info[seq_id]["img_height"]
+        width = self.sequence_info[seq_id]["img_width"]
         raw_masks = [None] * relevant_ids.shape[0]
         masks = np.zeros((relevant_ids.shape[0], height, width), dtype=np.uint8)
         for i, rel_id in enumerate(relevant_ids):
@@ -143,7 +143,9 @@ class MOTSynthReader(object):
             parser = ConfigParser()
             parser.read(str(info_file_path))
             sequence_info[parser.get("Sequence", "name")] = {
-                "length": parser.getint("Sequence", "seqLength")
+                "length": parser.getint("Sequence", "seqLength"),
+                "img_width": parser.getint("Sequence", "imWidth"),
+                "img_height": parser.getint("Sequence", "imHeight"),
             }
         return sequence_info
 
