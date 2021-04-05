@@ -146,8 +146,6 @@ class MOTSReader(object):
             path = self.root_path / seq_id / self.config["egomotion_path"]
             rot = np.load(str(path / "rotations.npy"))
             trans = np.load(str(path / "translations.npy"))
-            rot = rot[:, 0, ...]
-            trans = trans[:, 0, ...]
             transformations = np.zeros((rot.shape[0], 4, 4))
             transformations[:, :3, :] = np.concatenate((rot, trans[..., None]), axis=2)
             transformations[:, -1, -1] = 1
