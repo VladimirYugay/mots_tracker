@@ -61,21 +61,19 @@ def read_kitti_bb_file(path):
     bb_file = open(path, "r")
     bb_lines = bb_file.readlines()
     bb_data = []
+    obj_types = []
     for i, line in enumerate(bb_lines):
         parts = line.split(" ")
         obj_type = parts[2]
         if obj_type not in ["Car", "Pedestrian"]:
             continue
-        if obj_type == "Car":
-            obj_type = 1
-        else:
-            obj_type = 2
+        obj_types.append(obj_type)
         frame_id, ped_id = parts[:2]
         x1, y1, x2, y2 = parts[6:10]
-        bb_data.append([frame_id, ped_id, x1, y1, x2, y2, obj_type])
+        bb_data.append([frame_id, ped_id, x1, y1, x2, y2])
     bb_data = np.array(bb_data, dtype=np.float64)
     bb_file.close()
-    return bb_data
+    return bb_data, obj_types
 
 
 def read_kitti_calib(path):

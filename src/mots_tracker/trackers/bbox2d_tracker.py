@@ -11,7 +11,7 @@ class BBox2dTracker(BaseTracker):
         BaseTracker.__init__(
             self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
         )
-        self.representation_size = 4  # x, y, z coordinates of a median
+        self.representation_size = 4  # x, y, scale, area of the 2d bb
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
@@ -42,7 +42,7 @@ class BBox2dTracker(BaseTracker):
                         trk.get_state()[0],
                         trk.info["box"],
                         trk.id + 1,
-                        trk.info.get("obj_type", default=None),
+                        trk.info.get("obj_type", None),
                     )
                 )
             i -= 1

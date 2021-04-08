@@ -80,11 +80,11 @@ class KITTIReader(object):
             boxes (ndarray), box_ids (ndarray), boj_types: boxes with their
             ids and types 1 - Car, 2 - Pedestrian
         """
-        boxes = self.cache["box_data"].copy()
+        boxes, obj_types = self.cache["box_data"]
         frame_data = boxes[boxes[:, 0] == frame_id]
         box_ids = frame_data[:, 1].astype(np.uint64)
         frame_boxes = frame_data[:, [2, 3, 4, 5]]
-        return frame_boxes, box_ids, frame_data[:, -1]
+        return frame_boxes, box_ids, obj_types
 
     def _init_cache(self, seq_id):
         """Initializes cache for a sequence
