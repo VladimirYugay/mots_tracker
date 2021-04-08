@@ -1,10 +1,10 @@
 """ Class tracking medians """
 import numpy as np
 
+from mots_tracker import utils
 from mots_tracker.kalman_filters.median_kalman_filter import MedianKalmanFilter
 from mots_tracker.trackers.base_tracker import BaseTracker
 from mots_tracker.trackers.tracker_helpers import linear_assignment, pairwise_distance
-from mots_tracker.utils import patch_masks, rgbd2ptcloud
 
 
 class MedianTracker(BaseTracker):
@@ -16,19 +16,7 @@ class MedianTracker(BaseTracker):
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
-        image, masks, raw_masks, depth = (
-            sample["image"],
-            sample["masks"],
-            sample["raw_masks"],
-            sample["depth"],
-        )
-        img_patches, depth_patches = patch_masks(image, masks), patch_masks(
-            depth, masks
-        )
-        clouds = [
-            rgbd2ptcloud(img_patch, depth_patch, intrinsics)
-            for img_patch, depth_patch in zip(img_patches, depth_patches)
-        ]
+        clouds = utils.compute_mask_clouds(sample)
         medians = np.array(
             [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
         )
@@ -36,8 +24,8 @@ class MedianTracker(BaseTracker):
             medians = np.empty((0, self.representation_size))
         info = {
             i: {
-                "mask": masks[i, :],
-                "raw_mask": raw_masks[i],
+                "mask": sample["masks"][i, :],
+                "raw_mask": sample["raw_masks"][i],
                 "box": sample["boxes"][i],
             }
             for i in range(medians.shape[0])
@@ -64,7 +52,7 @@ class MedianTracker(BaseTracker):
         return ret
 
     def associate_detections_to_trackers(self, detections, trackers):
-        """ Assigns detections to tracked object (both represented as bounding boxes) """
+        """ Assigns detections to tracked object (both as bounding boxes) """
         if len(trackers) == 0:
             return (
                 np.empty((0, 2), dtype=int),
