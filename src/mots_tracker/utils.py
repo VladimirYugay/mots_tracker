@@ -35,7 +35,7 @@ def resize_boxes(boxes, old_shape, new_shape):
     # sometimes boxes are outside of the image, we need to clip them
     boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, new_shape[0] - 1)
     boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, new_shape[1] - 1)
-    return np.asarray(boxes, dtype=np.uint64)
+    return boxes
 
 
 def scale_intrinsics(intrinsics, old_shape, new_shape):
