@@ -29,6 +29,8 @@ def resize_masks(masks, img_shape):
 def resize_boxes(boxes, old_shape, new_shape):
     """ resizes bounding boxes based on old and new shapes of the image """
     boxes = boxes.copy()
+    if len(boxes.shape) == 1:
+        boxes = boxes[None, :]
     boxes = np.asarray(boxes, dtype=np.float64)
     boxes[:, [0, 2]] *= new_shape[0] / old_shape[0]
     boxes[:, [1, 3]] *= new_shape[1] / old_shape[1]
