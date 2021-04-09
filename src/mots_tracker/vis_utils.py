@@ -5,12 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 from matplotlib import colors as mcolors
-from matplotlib import gridspec
+from matplotlib import patches
 
 from mots_tracker import utils
-from mots_tracker.kalman_filters import BB2DKalmanFilter
-from mots_tracker.kalman_filters.bb3d_kalman_filter import BB3DKalmanFilter
-from mots_tracker.kalman_filters.median_kalman_filter import MedianKalmanFilter
 
 np.random.seed(12)
 # assume that there are no more than 2000 different object ids
@@ -192,245 +189,22 @@ def plot_ptcloud(point_clouds):
     o3d.visualization.draw_geometries(point_clouds + [mesh_frame])
 
 
-def vis_median_kalman_filter(reader, seq_id, obj_ids, steps=10):
-    # ids for sequence 5 are 1, 125
-    kalman_filters = {idx: MedianKalmanFilter(np.zeros(3), {}) for idx in obj_ids}
-    estimates, gt, kalman_gains = (
-        defaultdict(list),
-        defaultdict(list),
-        defaultdict(list),
+def plot_box_patch(axis, box, box_id=None):
+    """Adds box patch to an axis
+    Args:
+        axis (Axis): matplotlib axis
+        box (ndarray): bounding box in (x1, y1, x2, y2) format
+        box_id (int): id of the bounding box
+    """
+    if box_id is None:
+        box_id = 0
+    axis.add_patch(
+        patches.Rectangle(
+            (box[0], box[1]),
+            box[2] - box[0],
+            box[3] - box[1],
+            fill=False,
+            lw=3,
+            color=M_COLORS[box_id],
+        )
     )
-    steps = reader.sequence_info[seq_id]["length"] if steps == "all" else steps
-    for step in range(steps):
-        print("Processing frame {}".format(step + 1))
-        # read the observations
-        sample = reader.read_sample(seq_id, step)
-        img_patches, depth_patches = utils.patch_masks(
-            sample["image"], sample["masks"]
-        ), utils.patch_masks(
-            sample["image"],
-            sample["depth"],
-        )
-        clouds = [
-            utils.rgbd2ptcloud(
-                img_patch, depth_patch, reader.sequence_info[seq_id]["intrinsics"]
-            )
-            for img_patch, depth_patch in zip(img_patches, depth_patches)
-        ]
-        medians = np.array(
-            [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
-        )
-        observations = {}
-        for mask_id, median in zip(sample["mask_ids"], medians):
-            if mask_id in obj_ids:
-                observations[mask_id] = median
-
-        # make update step, write the estimate, write the ground truth and kalman gain
-        for idx, observation in observations.items():
-            kalman_filters[idx].update(observation, {})
-            kalman_gains[idx].append(np.sum(kalman_filters[idx].kf.K))
-            estimates[idx].append(kalman_filters[idx].kf.x[:3][:, 0])
-            gt[idx].append(observation)
-
-    gs = gridspec.GridSpec(5, len(obj_ids))
-    fig = plt.figure()
-    for i, idx in enumerate(obj_ids):
-        ax, ay, az, ae = (
-            fig.add_subplot(gs[0, i]),
-            fig.add_subplot(gs[1, i]),
-            fig.add_subplot(gs[2, i]),
-            fig.add_subplot(gs[3, i]),
-        )
-        akg = fig.add_subplot(gs[4, i])
-        ax.title.set_text("Object id: {}".format(idx))
-        truth, est, kg = (
-            np.array(gt[idx]),
-            np.array(estimates[idx]),
-            np.array(kalman_gains[idx]),
-        )
-        error = np.linalg.norm(truth - est, axis=1)
-        x = np.arange(truth.shape[0])
-
-        ax.plot(x, truth[:, 0], "g", x, est[:, 0], "bs-")
-        ay.plot(x, truth[:, 1], "g", x, est[:, 1], "bs-")
-        lgt, lest = az.plot(x, truth[:, 2], "g", x, est[:, 2], "bs-")
-        le = ae.plot(x, error, "red", label="error")
-        lkg = akg.plot(x, kg, "orange", label="kalman gain")
-        if i == 0:
-            ax.set_ylabel("X")
-            ay.set_ylabel("Y")
-            az.set_ylabel("Z")
-            ae.set_ylabel("Error")
-            akg.set_ylabel("Kalman Gain")
-        az.set_xlabel("Step")
-        print(
-            "Sequence: {}, object id: {}, MSE: {}".format(seq_id, idx, np.mean(error))
-        )
-    fig.legend(
-        (lgt, lest, le[0], lkg[0]),
-        ("Ground truth", "Estimate", "Error", "Kalman Gain"),
-        "upper left",
-    )
-    plt.show()
-
-
-def vis_bbox3d_kalman_filter(reader, seq_id, obj_ids, steps=10):
-    kalman_filters = {idx: BB3DKalmanFilter(np.zeros(6), {}) for idx in obj_ids}
-    estimates, gt, kalman_gains = (
-        defaultdict(list),
-        defaultdict(list),
-        defaultdict(list),
-    )
-    steps = reader.sequence_info[seq_id]["length"] if steps == "all" else steps
-    for step in range(steps):
-        print("Processing frame {}".format(step + 1))
-        # read the observations
-        sample = reader.read_sample(seq_id, step)
-        img_patches, depth_patches = (
-            utils.patch_masks(sample["image"], sample["masks"]),
-            utils.patch_masks(sample["depth"], sample["masks"]),
-        )
-        clouds = [
-            utils.rgbd2ptcloud(
-                img_patch, depth_patch, reader.sequence_info[seq_id]["intrinsics"]
-            )
-            for img_patch, depth_patch in zip(img_patches, depth_patches)
-        ]
-        observations = {}
-        for cloud, mask_id in zip(clouds, sample["mask_ids"]):
-            try:
-                box = cloud.get_axis_aligned_bounding_box()
-                bb3d = np.concatenate((box.get_center(), box.get_extent()))
-                if mask_id in obj_ids:
-                    observations[mask_id] = bb3d
-            except Exception:
-                continue
-
-        # make update step, write the estimate, write the ground truth and kalman gain
-        for idx, observation in observations.items():
-            kalman_filters[idx].update(observation, {})
-            kalman_gains[idx].append(np.sum(kalman_filters[idx].kf.K))
-            estimates[idx].append(kalman_filters[idx].kf.x[:6][:, 0])
-            gt[idx].append(observation)
-
-    gs = gridspec.GridSpec(8, len(obj_ids))
-    fig = plt.figure()
-    for i, idx in enumerate(obj_ids):
-        ax, ay, az = (
-            fig.add_subplot(gs[0, i]),
-            fig.add_subplot(gs[1, i]),
-            fig.add_subplot(gs[2, i]),
-        )
-        aw, ah, al = (
-            fig.add_subplot(gs[3, i]),
-            fig.add_subplot(gs[4, i]),
-            fig.add_subplot(gs[5, i]),
-        )
-        ae, akg = fig.add_subplot(gs[6, i]), fig.add_subplot(gs[7, i])
-        ax.title.set_text("Object id: {}".format(idx))
-        truth, est, kg = (
-            np.array(gt[idx]),
-            np.array(estimates[idx]),
-            np.array(kalman_gains[idx]),
-        )
-        error = np.linalg.norm(truth - est, axis=1)
-        x = np.arange(truth.shape[0])
-
-        ax.plot(x, truth[:, 0], "g", x, est[:, 0], "bs-")
-        ay.plot(x, truth[:, 1], "g", x, est[:, 1], "bs-")
-        lgt, lest = az.plot(x, truth[:, 2], "g", x, est[:, 2], "bs-")
-        aw.plot(x, truth[:, 3], "g", x, est[:, 3], "bs-")
-        ah.plot(x, truth[:, 4], "g", x, est[:, 4], "bs-")
-        al.plot(x, truth[:, 5], "g", x, est[:, 5], "bs-")
-        le = ae.plot(x, error, "red", label="error")
-        lkg = akg.plot(x, kg, "orange", label="kalman gain")
-        if i == 0:
-            ax.set_ylabel("X")
-            ay.set_ylabel("Y")
-            az.set_ylabel("Z")
-            aw.set_ylabel("Width")
-            ah.set_ylabel("Height")
-            al.set_ylabel("Length")
-            ae.set_ylabel("Error")
-            akg.set_ylabel("Kalman Gain")
-        az.set_xlabel("Step")
-        print(
-            "Sequence: {}, object id: {}, MSE: {}".format(seq_id, idx, np.mean(error))
-        )
-    fig.legend(
-        (lgt, lest, le[0], lkg[0]),
-        ("Ground truth", "Estimate", "Error", "Kalman Gain"),
-        "upper left",
-    )
-    plt.show()
-
-
-def vis_bbox2d_kalman_filter(reader, seq_id, obj_ids, steps=10):
-    # ids for sequence 5 are 1, 125
-    kalman_filters = {
-        idx: BB2DKalmanFilter(np.array([417.00, 458.00, 39.00, 83.00]), {})
-        for idx in obj_ids
-    }
-    estimates, gt, kalman_gains = (
-        defaultdict(list),
-        defaultdict(list),
-        defaultdict(list),
-    )
-    steps = reader.sequence_info[seq_id]["length"] if steps == "all" else steps
-    for step in range(steps):
-        print("Processing frame {}".format(step + 1))
-        # read the observations
-        sample = reader.read_sample(seq_id, step)
-        observations = {}
-        for box_id, box in zip(sample["box_ids"], sample["boxes"]):
-            if box_id in obj_ids:
-                observations[box_id] = box
-
-        # make update step, write the estimate, write the ground truth and kalman gain
-        for idx, observation in observations.items():
-            kalman_filters[idx].update(observation, {})
-            kalman_gains[idx].append(np.sum(kalman_filters[idx].kf.K))
-            estimates[idx].append(kalman_filters[idx].get_state()[0])
-            gt[idx].append(observation)
-    gs = gridspec.GridSpec(6, len(obj_ids))
-    fig = plt.figure()
-    for i, idx in enumerate(obj_ids):
-        ax, ay, aa, ar = (
-            fig.add_subplot(gs[0, i]),
-            fig.add_subplot(gs[1, i]),
-            fig.add_subplot(gs[2, i]),
-            fig.add_subplot(gs[3, i]),
-        )
-        ae, akg = fig.add_subplot(gs[4, i]), fig.add_subplot(gs[5, i])
-        ax.title.set_text("Object id: {}".format(idx))
-        truth, est, kg = (
-            np.array(gt[idx]),
-            np.array(estimates[idx]),
-            np.array(kalman_gains[idx]),
-        )
-        error = np.linalg.norm(truth - est, axis=1)
-        x = np.arange(truth.shape[0])
-
-        ax.plot(x, truth[:, 0], "g", x, est[:, 0], "bs-")
-        ay.plot(x, truth[:, 1], "g", x, est[:, 1], "bs-")
-        aa.plot(x, truth[:, 2], "g", x, est[:, 2], "bs-")
-        lgt, lest = ar.plot(x, truth[:, 3], "g", x, est[:, 3], "bs-")
-        le = ae.plot(x, error, "red", label="error")
-        lkg = akg.plot(x, kg, "orange", label="kalman gain")
-        if i == 0:
-            ax.set_ylabel("X")
-            ay.set_ylabel("Y")
-            aa.set_ylabel("Area")
-            ar.set_ylabel("Ratio")
-            ae.set_ylabel("Error")
-            akg.set_ylabel("Kalman Gain")
-        ar.set_xlabel("Step")
-        print(
-            "Sequence: {}, object id: {}, MSE: {}".format(seq_id, idx, np.mean(error))
-        )
-    fig.legend(
-        (lgt, lest, le[0], lkg[0]),
-        ("Ground truth", "Estimate", "Error", "Kalman Gain"),
-        "upper left",
-    )
-    plt.show()
