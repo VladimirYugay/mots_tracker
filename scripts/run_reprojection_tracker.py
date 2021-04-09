@@ -6,13 +6,12 @@ import sys
 import time
 
 import click
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors as mcolors
 
 import mots_tracker
-from mots_tracker import utils
+from mots_tracker import io_utils, utils, vis_utils
 from mots_tracker.readers import MOTSReader
 from mots_tracker.trackers import MedianProjectionTracker
 from mots_tracker.vis_utils import M_COLORS
@@ -23,13 +22,15 @@ _logger = logging.getLogger(__name__)
 @click.command()
 @click.option("--lag", default=0)
 @click.option(
-    "--mots_path",
-    "mots_path",
+    "--dp",
+    "--data_path",
+    "data_path",
     default="/home/vy/university/thesis/datasets/MOTS/",
     type=click.Path(exists=True),
-    help="path to mots dataset",
+    help="Path to the dataset",
 )
 @click.option(
+    "--op",
     "--output_path",
     "output_path",
     default="./data/output/test",
@@ -61,7 +62,7 @@ _logger = logging.getLogger(__name__)
 @click.option("-v", "--verbose", "log_level", flag_value=logging.INFO, default=True)
 @click.version_option(mots_tracker.__version__)
 def main(
-    mots_path,
+    data_path,
     output_path,
     display,
     lag,
@@ -95,13 +96,11 @@ def main(
         os.makedirs(output_path)
 
     with open(str(reader_cfg_path), "r") as reader_config_file:
-        reader_args = json.load(reader_config_file)
-    reader = MOTSReader(os.path.join(mots_path, phase), reader_args)
+        reader_config = json.load(reader_config_file)
+    reader = MOTSReader(os.path.join(data_path, phase), reader_config)
     for seq in reader.sequence_info.keys():
         p_0 = np.array([0.0, 0.0, 0.0, 1.0])
         poses = np.array([0.0, 0.0, 0.0, 1.0])
-        orig_width = reader.sequence_info[seq]["img_width"]
-        orig_height = reader.sequence_info[seq]["img_height"]
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
         mot_tracker = MedianProjectionTracker(*tracker_args.values())
@@ -118,17 +117,7 @@ def main(
                 axis[1].set_title("GT boxes")
                 axis[1].imshow(sample["image"])
                 for box_id, bb in enumerate(sample["boxes"]):
-                    bb = bb.astype(np.int32)
-                    axis[1].add_patch(
-                        patches.Rectangle(
-                            (bb[0], bb[1]),
-                            bb[2] - bb[0],
-                            bb[3] - bb[1],
-                            fill=False,
-                            lw=3,
-                            color=M_COLORS[box_id],
-                        )
-                    )
+                    vis_utils.plot_box_patch(axis[1], bb, box_id)
 
                 axis[2].set_title("Projections")
                 display_img = sample["image"].copy()
@@ -159,34 +148,16 @@ def main(
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
-                state = utils.resize_boxes(
-                    box[None, :], (416, 128), (orig_width, orig_height)
-                )[0]
-                # state = box
-                print(
-                    "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
-                    % (
-                        frame,
-                        idx,
-                        state[0],
-                        state[1],
-                        state[2] - state[0],
-                        state[3] - state[1],
-                    ),
-                    file=out_file,
-                )
                 if display:
-                    box = box.astype(np.int32)
-                    axis[0].add_patch(
-                        patches.Rectangle(
-                            (box[0], box[1]),
-                            box[2] - box[0],
-                            box[3] - box[1],
-                            fill=False,
-                            lw=3,
-                            color=M_COLORS[idx],
-                        )
-                    )
+                    vis_utils.plot_box_patch(axis[0], box, idx)
+                if "resize_shape" in reader_config:
+                    width = reader.sequence_info[seq]["img_width"]
+                    height = reader.sequence_info[seq]["img_height"]
+                    box = utils.resize_boxes(
+                        box, reader_config["resize_shape"], (width, height)
+                    )[0]
+                io_utils.print_mot_format(frame, idx, box, out_file)
+
             if display:
                 time.sleep(lag)
                 fig.canvas.flush_events()
