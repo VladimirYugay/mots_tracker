@@ -38,7 +38,7 @@ class MOTSynthReader(object):
     def __init__(self, root_path, gt_path, config):
         """Reader constructor
         Args:
-            root_path (str): path to frames folder with images and json annotations
+            root_path (str): path to frames folder with rgb images
             gt_path (str): path to motsynth bb, seg, depth annotations
             config (dict): config with reader setup options
         """
@@ -68,7 +68,16 @@ class MOTSynthReader(object):
             masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
         image = utils.load_image(img_path)
         if self.config["depth_path"] is not None:
-            depth = None  # not implemented
+            depth_path = self.gt_path / seq_id / self.config["depth_path"]
+            depth_path = depth_path / "{:0>4d}".format(frame_id)
+            if (
+                self.config["depth_path"] == "depth"
+            ):  # gt depth maps are images, not numpy
+                depth = reader_helpers.load_motsynth_depth_image(
+                    str(depth_path) + ".png"
+                )
+            else:
+                depth = np.load(str(depth_path) + ".npy")
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
         intrinsics = INTRINSICS
@@ -139,9 +148,9 @@ class MOTSynthReader(object):
 
     def _init_sequence_info(self):
         sequence_info = {}
-        for info_file_path in (self.gt_path / "sequences_info").glob("**/*"):
+        for info_file_path in (self.gt_path).glob("*"):
             parser = ConfigParser()
-            parser.read(str(info_file_path))
+            parser.read(str(info_file_path / "seqinfo.ini"), encoding=None)
             sequence_info[parser.get("Sequence", "name")] = {
                 "length": parser.getint("Sequence", "seqLength"),
                 "img_width": parser.getint("Sequence", "imWidth"),
@@ -159,11 +168,11 @@ class MOTSynthReader(object):
         img_names.sort()
         self.cache = {seq_id: seq_id, "img_names": img_names}
         if self.config["read_boxes"]:
-            bb_path = self.gt_path / "bb_annotations" / "{}.txt".format(seq_id)
+            bb_path = self.gt_path / seq_id / "gt" / "gt.txt"
             self.cache["boxes"] = read_mot_bb_file(str(bb_path))
 
         if self.config["read_masks"]:
-            mask_path = self.gt_path / "mask_annotations" / "{}.txt".format(seq_id)
+            mask_path = self.gt_path / seq_id / "gt" / "gt_masks.txt"
             self.cache["masks"] = read_mot_seg_file(mask_path)
 
     def _read_egomotion(self, seq_id, frame_id):
