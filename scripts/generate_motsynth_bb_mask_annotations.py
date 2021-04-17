@@ -26,20 +26,16 @@ def multi_run_wrapper(args):
 
 def generate_mot_file(ann_name, output_path):
     logging.log(logging.INFO, "Generating bb gt for frame: {}".format(str(ann_name)))
-    (output_path / "bb_annotations").mkdir(parents=True, exist_ok=True)
-    (output_path / "mask_annotations").mkdir(parents=True, exist_ok=True)
-    (output_path / "sequences_info").mkdir(parents=True, exist_ok=True)
-    (output_path / "egomotion").mkdir(parents=True, exist_ok=True)
     with open(str(ann_name), "r") as ann_file:
         annotations = json.load(ann_file)
+        seq_name = ann_name.parts[-1].split(".")[0]
+        output_path = output_path / seq_name
+        (output_path / "gt").mkdir(parents=True, exist_ok=True)
         # generate sequence info folder
-        info_file_name = (str(ann_name).split("/")[-1]).split(".")[0] + ".ini"
-        create_info_file(annotations, info_file_name, output_path)
-
+        create_info_file(annotations, output_path)
         # generate bounding boxes and masks annotations
-        file_name = (str(ann_name).split("/")[-1]).split(".")[0] + ".txt"
-        bb_output_file = open(str(output_path / "bb_annotations" / file_name), "w")
-        mask_output_file = open(str(output_path / "mask_annotations" / file_name), "w")
+        bb_output_file = open(str(output_path / "gt" / "gt.txt"), "w")
+        mask_output_file = open(str(output_path / "gt" / "gt_masks.txt"), "w")
         for annotation in annotations["annotations"]:
             if ann_name.parts[-1] == "000.json":
                 frame_id = annotation["image_id"]
@@ -61,10 +57,6 @@ def generate_mot_file(ann_name, output_path):
             mask = decode_mask(height, width, mask_string)
             if mask.sum() == 0:  # empty mask
                 continue
-            logging.log(
-                logging.INFO,
-                "Processing sequence: {}, frame: {}".format(ann_name, frame_id + 1),
-            )
             print(
                 "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
                 % (frame_id + 1, person_id, box[0], box[1], box[2], box[3]),
@@ -80,12 +72,12 @@ def generate_mot_file(ann_name, output_path):
         mask_output_file.close()
 
         # generate egomotion annotations
-        create_egomotion_file(annotations, output_path, file_name)
+        create_egomotion_file(annotations, output_path)
 
 
-def create_egomotion_file(ann, output_path, file_name):
+def create_egomotion_file(ann, output_path):
     """ Creates file with camera egomotion """
-    egomotion_output_file = open(str(output_path / "egomotion" / file_name), "w")
+    egomotion_output_file = open(str(output_path / "gt" / "egomotion.txt"), "w")
     for img_ann in ann["images"]:
         rotation = img_ann["cam_world_rot"]
         translation = img_ann["cam_world_pos"]
@@ -97,7 +89,7 @@ def create_egomotion_file(ann, output_path, file_name):
     egomotion_output_file.close()
 
 
-def create_info_file(ann, file_name, output_path):
+def create_info_file(ann, output_path):
     """ Creates sequence info file from annotation """
 
     def is_moving(img_anns):
@@ -110,12 +102,12 @@ def create_info_file(ann, file_name, output_path):
     config = ConfigParser()
     config.optionxform = str
     config.add_section("Sequence")
-    config.set("Sequence", "name", file_name.split(".")[0])
+    config.set("Sequence", "name", output_path.parts[-1])
     config.set("Sequence", "seqLength", str(len(ann["images"])))
     config.set("Sequence", "imWidth", str(ann["images"][0]["width"]))
     config.set("Sequence", "imHeight", str(ann["images"][0]["height"]))
     config.set("Sequence", "dynamic", str(is_moving(ann["images"])))
-    with open(str(output_path / "sequences_info" / file_name), "w") as info_output_file:
+    with open(str(output_path / "seqinfo.ini"), "w") as info_output_file:
         config.write(info_output_file)
 
 
@@ -144,6 +136,8 @@ def main(input_path, output_path):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     input_path, output_path = Path(input_path), Path(output_path)
+    output_path = output_path / "all"
+    output_path.mkdir(parents=True, exist_ok=True)
     logging.log(logging.INFO, "Start generating bb gt")
 
     pool = Pool(7)  # leave one core for convenience
