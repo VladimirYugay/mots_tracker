@@ -9,6 +9,7 @@ import json
 import logging
 import sys
 from configparser import ConfigParser
+from multiprocessing import Pool
 from pathlib import Path
 
 import click
@@ -145,12 +146,9 @@ def main(input_path, output_path):
     input_path, output_path = Path(input_path), Path(output_path)
     logging.log(logging.INFO, "Start generating bb gt")
 
-    from multiprocessing import Pool
-
     pool = Pool(7)  # leave one core for convenience
     ann_names = sorted(input_path.glob("*"), key=lambda path: str(path))
     args = [(am, output_path) for am in ann_names]
-    print(ann_names)
     pool.map(multi_run_wrapper, args)
     logging.log(logging.INFO, "Saved to: {}".format(output_path))
 
