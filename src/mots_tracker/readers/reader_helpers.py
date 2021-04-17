@@ -1,5 +1,6 @@
 """ Module with MOTS2020 data reader helper functions """
 import numpy as np
+from PIL import Image
 
 
 def id2imgpath(seq_idx, img_idx, input_dir):
@@ -49,6 +50,17 @@ def read_file_names(path):
         list(str): file names
     """
     return [str(file_name) for file_name in path.glob("**/*")]
+
+
+def load_motsynth_depth_image(img_path):
+    """Load depth image from .png file
+    Args:
+        img_path (str): path to the image
+    Returns:
+        ndarray: depth map
+    """
+    depth_img = np.array(Image.open(img_path).convert("L"))
+    return depth_img
 
 
 def read_kitti_bb_file(path):
