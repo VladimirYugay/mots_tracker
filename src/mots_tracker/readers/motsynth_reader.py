@@ -21,11 +21,13 @@ from mots_tracker.readers import reader_helpers
 from mots_tracker.readers.reader_helpers import read_mot_bb_file, read_mot_seg_file
 
 DEFAULT_CONFIG = {
+    "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations",
     "read_boxes": False,
     "read_masks": False,
     "resize_shape": None,
     "depth_path": None,
     "egomotion_path": None,
+    "split": None,  # (path_to_split_file, part_of_the_split)
 }
 
 # taken from https://github.com/fabbrimatteo/JTA-Dataset
@@ -35,16 +37,15 @@ INTRINSICS = np.array([[1158, 0, 960], [0, 1158, 540], [0, 0, 1]], dtype=np.floa
 class MOTSynthReader(object):
     """ MOTSynth reader class """
 
-    def __init__(self, root_path, gt_path, config):
+    def __init__(self, root_path, config):
         """Reader constructor
         Args:
             root_path (str): path to frames folder with rgb images
-            gt_path (str): path to motsynth bb, seg, depth annotations
             config (dict): config with reader setup options
         """
         self.config = DEFAULT_CONFIG.copy()
         self.config.update(config)
-        self.gt_path = Path(gt_path)
+        self.gt_path = Path(self.config["gt_path"])
         self.root_path = Path(root_path)
         # keep cache only for one sequence since they're large
         self.cache = {}  # image names, box annotations, mask annotations
