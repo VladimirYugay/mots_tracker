@@ -1,7 +1,9 @@
 {
+    "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations/all",
     "read_boxes": true,
     "read_masks": true,
     "resize_shape": null,
     "depth_path": null,
-    "egomotion_path": null
+    "egomotion_path": null,
+    "split_path": "split_0.6_0.2_0.2/train.txt"
 }

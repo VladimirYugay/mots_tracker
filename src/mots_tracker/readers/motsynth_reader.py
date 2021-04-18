@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     "resize_shape": None,
     "depth_path": None,
     "egomotion_path": None,
-    "split": None,  # (path_to_split_file, part_of_the_split)
+    "split_path": "split_0.6_0.2_0.2/train.txt",  # path_to_split_file
 }
 
 # taken from https://github.com/fabbrimatteo/JTA-Dataset
@@ -148,11 +148,17 @@ class MOTSynthReader(object):
         return frame_boxes, box_ids
 
     def _init_sequence_info(self):
+        split_path = self.gt_path / ".." / self.config["split_path"]
+        with open(str(split_path), "r") as file:
+            seq_ids = set(file.read().splitlines())
         sequence_info = {}
         for info_file_path in (self.gt_path).glob("*"):
             parser = ConfigParser()
             parser.read(str(info_file_path / "seqinfo.ini"), encoding=None)
-            sequence_info[parser.get("Sequence", "name")] = {
+            seq_name = parser.get("Sequence", "name")
+            if seq_name not in seq_ids:
+                continue
+            sequence_info[seq_name] = {
                 "length": parser.getint("Sequence", "seqLength"),
                 "img_width": parser.getint("Sequence", "imWidth"),
                 "img_height": parser.getint("Sequence", "imHeight"),
