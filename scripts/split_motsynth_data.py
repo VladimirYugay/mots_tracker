@@ -1,6 +1,7 @@
 """ Splits motsynth dataset into train, validation and test"""
 import logging
 import sys
+from configparser import ConfigParser
 from pathlib import Path
 
 import click
@@ -16,20 +17,23 @@ _logger = logging.getLogger(__name__)
 
 @click.command()
 @click.option(
+    "--dd",
     "--data_dir",
     "data_dir",
     default="/home/vy/university/thesis/datasets/MOTSynth",
     type=click.Path(exists=True),
-    help="Path to MOTSynth dataset",
+    help="Path to MOTSynth preprocessed annotations",
 )
 @click.option(
+    "--od",
     "--output_dir",
     "output_dir",
     default="/home/vy/university/thesis/datasets/MOTSynth",
     type=click.Path(exists=True),
-    help="Output path of the dataset",
+    help="Output path of the for the split files",
 )
 @click.option(
+    "--p",
     "--proportions",
     "proportions",
     type=(float, float, float),
@@ -38,22 +42,59 @@ _logger = logging.getLogger(__name__)
 )
 @click.version_option(mots_tracker.__version__)
 def main(data_dir, output_dir, proportions):
+    data_dir = Path(data_dir)
     print("Splitting sequences in proportions: {}".format(proportions))
     np.random.seed(42)
-    seq_ids = []
-    for seq_id in (Path(data_dir) / "frames").glob("*"):
-        seq_ids.append(seq_id.parts[-1])
-    seq_ids = np.array(seq_ids)
-    np.random.shuffle(seq_ids)
-    n = seq_ids.shape[0]
-    val_start = int((proportions[0]) * n)
-    test_start = int((proportions[0] + proportions[1]) * n)
-    train_ids, val_ids, test_ids = np.split(seq_ids, [val_start, test_start])
+    static_seq_ids, dynamic_seq_ids = [], []
+    parser = ConfigParser()
+    for seq_path in sorted((data_dir / "all").glob("*"), key=lambda p: str(p)):
+        parser.read(str(seq_path / "seqinfo.ini"), encoding=None)
+        seq_name = parser.get("Sequence", "name")
+        dynamic = parser.getint("Sequence", "dynamic")
+        if dynamic:
+            dynamic_seq_ids.append(seq_name)
+        else:
+            static_seq_ids.append(seq_name)
+    print("Static sequences: {}".format(len(static_seq_ids)))
+    print("Dynamic sequences: {}".format(len(dynamic_seq_ids)))
+    static_seq_ids = np.array(static_seq_ids)
+    dynamic_seq_ids = np.array(dynamic_seq_ids)
+
+    def split_data(data, p=(0.6, 0.2, 0.2)):
+        """ Splits data in train, val"""
+        np.random.shuffle(data)
+        n = data.shape[0]
+        vstart = int((p[0]) * n)
+        tstart = int((p[0] + p[1]) * n)
+        return np.split(data, [vstart, tstart])
+
+    st_train, st_val, st_test = split_data(static_seq_ids, proportions)
+    print(
+        "Static split is train: {}, validation: {}, test: {}".format(
+            st_train.shape[0], st_val.shape[0], st_test.shape[0]
+        )
+    )
+    d_train, d_val, d_test = split_data(dynamic_seq_ids, proportions)
+    print(
+        "Dynamic split is train: {}, validation: {}, test: {}".format(
+            d_train.shape[0], d_val.shape[0], d_test.shape[0]
+        )
+    )
+
+    train_ids = np.concatenate((st_train, d_train))
+    val_ids = np.concatenate((st_val, d_val))
+    test_ids = np.concatenate((st_test, d_test))
+
     assert not set(train_ids) & set(val_ids)
     assert not set(train_ids) & set(test_ids)
     assert not set(val_ids) & set(test_ids)
 
-    output_path = Path(output_dir) / "splits"
+    print(
+        "Overall split is train: {}, validation: {}, test: {}".format(
+            train_ids.shape[0], val_ids.shape[0], test_ids.shape[0]
+        )
+    )
+    output_path = Path(output_dir) / "split_{}_{}_{}".format(*proportions)
     output_path.mkdir(parents=True, exist_ok=True)
     np.savetxt(str(output_path / "train.txt"), train_ids, fmt="%s")
     np.savetxt(str(output_path / "val.txt"), val_ids, fmt="%s")
