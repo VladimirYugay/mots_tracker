@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 @click.option(
     "--dp",
     "--data_path",
-    "mots_path",
+    "data_path",
     default="/home/vy/university/thesis/datasets/MOTS/",
     type=click.Path(exists=True),
     help="Path to the dataset: MOTS, MOTSynth, KITTI",
@@ -63,7 +63,7 @@ _logger = logging.getLogger(__name__)
 @click.option("-v", "--verbose", "log_level", flag_value=logging.INFO, default=True)
 @click.version_option(mots_tracker.__version__)
 def main(
-    mots_path,
+    data_path,
     output_path,
     display,
     lag,
@@ -98,7 +98,8 @@ def main(
 
     with open(str(reader_cfg_path), "r") as reader_config_file:
         reader_config = json.load(reader_config_file)
-    reader = readers.MOTSReader(os.path.join(mots_path, phase), reader_config)
+    reader = readers.MOTSynthReader(os.path.join(data_path, phase), reader_config)
+    # reader = readers.MOTSReader(os.path.join(mots_path, phase), reader_config)
     for seq in sorted(reader.sequence_info.keys()):
         with open(str(tracker_cfg_path), "r") as tracker_config_file:
             tracker_args = json.load(tracker_config_file)
@@ -133,7 +134,10 @@ def main(
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (pred_box, box, idx, obj_type) in trackers:
-                if "resize_shape" in reader_config:
+                if (
+                    "resize_shape" in reader_config
+                    and reader_config["resize_shape"] is not None
+                ):
                     width = reader.sequence_info[seq]["img_width"]
                     height = reader.sequence_info[seq]["img_height"]
                     box = utils.resize_boxes(
