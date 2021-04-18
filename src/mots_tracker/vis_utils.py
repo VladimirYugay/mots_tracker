@@ -1,4 +1,5 @@
 """ module for visualization utils """
+import time
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -6,6 +7,7 @@ import numpy as np
 import open3d as o3d
 from matplotlib import colors as mcolors
 from matplotlib import patches
+from open3d.open3d.geometry import PointCloud
 
 from mots_tracker import utils
 
@@ -208,3 +210,64 @@ def plot_box_patch(axis, box, box_id=None):
             color=M_COLORS[box_id],
         )
     )
+
+
+def play_clouds_movement(list_of_pcds: []):
+    """Plays movement of pedestrain point clouds
+    Args:
+        list_of_pcds list(list): lists of points clouds of shape n_frames x n_clouds
+    """
+
+    def copy_pcds(pcds):
+        new_pcds = [PointCloud() for _ in pcds]
+        for new_pcd, pcd in zip(new_pcds, pcds):
+            new_pcd.colors = pcd.colors
+            new_pcd.points = pcd.points
+        return new_pcds
+
+    def reset_motion(vis):
+        play_clouds_movement.index = 0
+        for fpcd in play_clouds_movement.frame_pcds:
+            vis.remove_geometry(fpcd)
+        play_clouds_movement.frame_pcds = copy_pcds(list_of_pcds[0])
+        for fpcd in play_clouds_movement.frame_pcds:
+            vis.add_geometry(fpcd)
+        vis.get_view_control().rotate(0, 500)
+        vis.poll_events()
+        vis.update_renderer()
+        time.sleep(1)
+        vis.register_animation_callback(forward)
+        return False
+
+    def forward(vis):
+        pm = play_clouds_movement
+        if pm.index < len(list_of_pcds) - 1:
+            pm.index += 1
+            for fpcd in play_clouds_movement.frame_pcds:
+                vis.remove_geometry(fpcd)
+            time.sleep(1)
+            play_clouds_movement.frame_pcds = copy_pcds(list_of_pcds[pm.index])
+            for fpcd in play_clouds_movement.frame_pcds:
+                vis.add_geometry(fpcd)
+            vis.get_view_control().rotate(0, 500)
+            vis.poll_events()
+            vis.update_renderer()
+        else:
+            vis.register_animation_callback(reset_motion)
+        return False
+
+    play_clouds_movement.vis = o3d.visualization.Visualizer()
+    play_clouds_movement.index = 0
+    play_clouds_movement.frame_pcds = copy_pcds(list_of_pcds[0])
+    mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+        size=1, origin=[0, 0, 0]
+    )
+    vis = play_clouds_movement.vis
+    vis.create_window()
+    for fpcd in play_clouds_movement.frame_pcds:
+        vis.add_geometry(fpcd)
+    vis.add_geometry(mesh_frame)
+    vis.get_view_control().rotate(0, 500)
+    vis.register_animation_callback(forward)
+    vis.run()
+    vis.destroy_window()
