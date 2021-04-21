@@ -3,7 +3,7 @@
     "read_boxes": true,
     "read_masks": true,
     "resize_shape": null,
-    "depth_path": null,
+    "depth_path": "gt_depth",
     "egomotion_path": null,
-    "split_path": "split_0.6_0.2_0.2/train.txt"
+    "split_path": null
 }
