@@ -72,7 +72,7 @@ class MOTSynthReader(object):
             depth_path = self.gt_path / seq_id / self.config["depth_path"]
             depth_path = depth_path / "{:0>4d}".format(frame_id)
             if (
-                self.config["depth_path"] == "depth"
+                self.config["depth_path"] == "gt_depth"
             ):  # gt depth maps are images, not numpy
                 depth = reader_helpers.load_motsynth_depth_image(
                     str(depth_path) + ".png"
@@ -148,9 +148,12 @@ class MOTSynthReader(object):
         return frame_boxes, box_ids
 
     def _init_sequence_info(self):
-        split_path = self.gt_path / ".." / self.config["split_path"]
-        with open(str(split_path), "r") as file:
-            seq_ids = set(file.read().splitlines())
+        seq_ids = set(pth.parts[-1] for pth in self.gt_path.glob("*"))
+        print(seq_ids)
+        if self.config["split_path"] is not None:
+            split_path = self.gt_path / ".." / self.config["split_path"]
+            with open(str(split_path), "r") as file:
+                seq_ids = set(file.read().splitlines())
         sequence_info = {}
         for info_file_path in (self.gt_path).glob("*"):
             parser = ConfigParser()
@@ -170,7 +173,7 @@ class MOTSynthReader(object):
         Args:
              seq_id (str): sequence id in 3-digit format
         """
-        imgs_path = self.root_path / "frames" / seq_id / "rgb"
+        imgs_path = self.root_path / "frames" / seq_id
         img_names = reader_helpers.read_file_names(imgs_path)
         img_names.sort()
         self.cache = {seq_id: seq_id, "img_names": img_names}
