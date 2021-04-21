@@ -60,6 +60,7 @@ def load_motsynth_depth_image(img_path):
         ndarray: depth map
     """
     depth_img = np.array(Image.open(img_path).convert("L"))
+    depth_img = 255 - depth_img
     return depth_img
 
 
