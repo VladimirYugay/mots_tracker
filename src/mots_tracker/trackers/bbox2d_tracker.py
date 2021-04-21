@@ -40,9 +40,9 @@ class BBox2dTracker(BaseTracker):
                 ret.append(
                     (
                         trk.get_state()[0],
+                        trk.info.get("obj_type", None),
                         trk.info["box"],
                         trk.id + 1,
-                        trk.info.get("obj_type", None),
                     )
                 )
             i -= 1
