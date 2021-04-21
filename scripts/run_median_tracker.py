@@ -64,6 +64,7 @@ _logger = logging.getLogger(__name__)
 @click.option("-v", "--verbose", "log_level", flag_value=logging.INFO, default=True)
 @click.version_option(mots_tracker.__version__)
 def main(
+    cores,
     data_path,
     output_path,
     display,
@@ -88,12 +89,6 @@ def main(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    if display:
-        plt.ion()
-        fig = plt.figure()
-        axis_track = fig.add_subplot(121, aspect="equal")
-        axis_gt = fig.add_subplot(122, aspect="equal")
-
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     with open(str(reader_cfg_path), "r") as reader_config_file:
@@ -105,8 +100,8 @@ def main(
     )
     seq_ids = sorted(reader.sequence_info.keys())
 
-    if not display:
-        pool = Pool(7)  # leave one core for convenience
+    if not display:  # run in async manner
+        pool = Pool(cores)
         mot_tracker = MedianTracker(*tracker_config.values())  # each for one sequence
         args = [
             (reader, seq_id, output_path, mot_tracker, reader_config)
@@ -115,6 +110,11 @@ def main(
         print(args)
         pool.map(multi_run_wrapper, args)
         return
+
+    plt.ion()
+    fig = plt.figure()
+    axis_track = fig.add_subplot(121, aspect="equal")
+    axis_gt = fig.add_subplot(122, aspect="equal")
 
     for seq in seq_ids:
         mot_tracker = MedianTracker(*tracker_config.values())
@@ -125,39 +125,37 @@ def main(
             sample = reader.read_sample(seq, frame)
             frame += 1
 
-            if display:
-                axis_track.imshow(sample["image"])
-                axis_track.set_title("Sequence: {}, frame: {}".format(seq, frame))
-                axis_gt.set_title("Ground truth")
-                axis_gt.imshow(sample["image"])
+            axis_track.imshow(sample["image"])
+            axis_track.set_title("Sequence: {}, frame: {}".format(seq, frame))
+            axis_gt.set_title("Ground truth")
+            axis_gt.imshow(sample["image"])
 
-                for box_id, bb in enumerate(sample["boxes"]):
-                    bb = bb.astype(np.int32)
-                    axis_gt.add_patch(
-                        patches.Rectangle(
-                            (bb[0], bb[1]),
-                            bb[2] - bb[0],
-                            bb[3] - bb[1],
-                            fill=False,
-                            lw=3,
-                            color=M_COLORS[box_id],
-                        )
+            for box_id, bb in enumerate(sample["boxes"]):
+                bb = bb.astype(np.int32)
+                axis_gt.add_patch(
+                    patches.Rectangle(
+                        (bb[0], bb[1]),
+                        bb[2] - bb[0],
+                        bb[3] - bb[1],
+                        fill=False,
+                        lw=3,
+                        color=M_COLORS[box_id],
                     )
+                )
 
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
-                if display:
-                    axis_track.add_patch(
-                        patches.Rectangle(
-                            (box[0], box[1]),
-                            box[2] - box[0],
-                            box[3] - box[1],
-                            fill=False,
-                            lw=3,
-                            color=M_COLORS[idx],
-                        )
+                axis_track.add_patch(
+                    patches.Rectangle(
+                        (box[0], box[1]),
+                        box[2] - box[0],
+                        box[3] - box[1],
+                        fill=False,
+                        lw=3,
+                        color=M_COLORS[idx],
                     )
+                )
                 if "resize_shape" in reader_config and reader_config["resize_shape"]:
                     width = reader.sequence_info[seq]["img_width"]
                     height = reader.sequence_info[seq]["img_height"]
@@ -165,12 +163,11 @@ def main(
                         box[None, :], reader_config["resize_shape"], (width, height)
                     )[0]
                 print_mot_format(frame, idx, box, out_file)
-            if display:
-                time.sleep(lag)
-                fig.canvas.flush_events()
-                plt.draw()
-                axis_track.cla()
-                axis_gt.cla()
+            time.sleep(lag)
+            fig.canvas.flush_events()
+            plt.draw()
+            axis_track.cla()
+            axis_gt.cla()
 
         out_file.close()
 
