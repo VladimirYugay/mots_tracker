@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import time
+from multiprocessing import Pool
 
 import click
 import matplotlib.patches as patches
@@ -11,9 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import mots_tracker
-from mots_tracker import utils
-from mots_tracker.io_utils import print_mot_format
-from mots_tracker.readers import MOTSReader
+from mots_tracker import readers, utils
+from mots_tracker.io_utils import multi_run_wrapper, print_mot_format
 from mots_tracker.trackers import MedianTracker
 from mots_tracker.vis_utils import M_COLORS
 
@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.option("--lag", default=0)
+@click.option("--c", "--cores", default=4)
 @click.option(
     "--dp",
     "--data_path",
@@ -30,6 +30,7 @@ _logger = logging.getLogger(__name__)
     type=click.Path(exists=True),
     help="Path to the dataset",
 )
+@click.option("--lag", default=0)
 @click.option(
     "--op",
     "--output_path",
@@ -39,7 +40,7 @@ _logger = logging.getLogger(__name__)
 )
 @click.option("--phase", default="train")
 @click.option(
-    "-rc",
+    "--rc",
     "--reader_config",
     "reader_cfg_path",
     default="./configs/reader_configs/mots_reader_config.json",
@@ -47,7 +48,7 @@ _logger = logging.getLogger(__name__)
     help="path to reader config file",
 )
 @click.option(
-    "-tc",
+    "--tc",
     "--tracker_config",
     "tracker_cfg_path",
     default="./configs/tracker_configs/median_tracker_config.json",
@@ -95,14 +96,28 @@ def main(
 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
-
     with open(str(reader_cfg_path), "r") as reader_config_file:
         reader_config = json.load(reader_config_file)
-    reader = MOTSReader(os.path.join(data_path, phase), reader_config)
-    for seq in reader.sequence_info.keys():
-        with open(str(tracker_cfg_path), "r") as tracker_config_file:
-            tracker_args = json.load(tracker_config_file)
-        mot_tracker = MedianTracker(*tracker_args.values())
+    with open(str(tracker_cfg_path), "r") as tracker_config_file:
+        tracker_config = json.load(tracker_config_file)
+    reader = readers.motsynth_reader.MOTSynthReader(
+        os.path.join(data_path, phase), reader_config
+    )
+    seq_ids = sorted(reader.sequence_info.keys())
+
+    if not display:
+        pool = Pool(7)  # leave one core for convenience
+        mot_tracker = MedianTracker(*tracker_config.values())  # each for one sequence
+        args = [
+            (reader, seq_id, output_path, mot_tracker, reader_config)
+            for seq_id in seq_ids
+        ]
+        print(args)
+        pool.map(multi_run_wrapper, args)
+        return
+
+    for seq in seq_ids:
+        mot_tracker = MedianTracker(*tracker_config.values())
         out_file = open(os.path.join(output_path, "{}.txt".format(seq)), "w")
         logging.log(log_level, "Processing %s." % seq)
         for frame in range(reader.sequence_info[seq]["length"]):
@@ -143,7 +158,7 @@ def main(
                             color=M_COLORS[idx],
                         )
                     )
-                if "resize_shape" in reader_config:
+                if "resize_shape" in reader_config and reader_config["resize_shape"]:
                     width = reader.sequence_info[seq]["img_width"]
                     height = reader.sequence_info[seq]["img_height"]
                     box = utils.resize_boxes(

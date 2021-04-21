@@ -1,4 +1,7 @@
 """ Utils for input and output of tracker data """
+import os
+
+from mots_tracker import utils
 
 
 def print_mot_format(frame_id, obj_id, box, file):
@@ -38,3 +41,34 @@ def print_kitti_format(frame_id, obj_id, obj_type, box, file):
         ),
         file=file,
     )
+
+
+def multi_run_wrapper(args):
+    """ Unpacks argument for running on multiple cores """
+    return track_objects(*args)
+
+
+def track_objects(reader, seq_id, output_path, mot_tracker, reader_config):
+    """Function to run trackers on multiple cores
+    Args:
+        reader (Reader): one of the readers implemented in readers module
+        seq_id (str): id of the sequence
+        output_path (Path): path to save output
+        mot_tracker (Tracker): one of the trackers implemented in trackers module
+        reader_config (dict): configuration of the reader
+    """
+    out_file = open(os.path.join(output_path, "{}.txt".format(seq_id)), "w")
+    print("Processing %s." % seq_id)
+    for frame in range(reader.sequence_info[seq_id]["length"]):
+        sample = reader.read_sample(seq_id, frame)
+        frame += 1
+        trackers = mot_tracker.update(sample, sample["intrinsics"])
+        for (pred_box, mask, box, idx) in trackers:
+            if "resize_shape" in reader_config and reader_config["resize_shape"]:
+                width = reader.sequence_info[seq_id]["img_width"]
+                height = reader.sequence_info[seq_id]["img_height"]
+                box = utils.resize_boxes(
+                    box[None, :], reader_config["resize_shape"], (width, height)
+                )[0]
+            print_mot_format(frame, idx, box, out_file)
+    out_file.close()
