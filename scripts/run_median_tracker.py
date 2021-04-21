@@ -7,21 +7,19 @@ import time
 from multiprocessing import Pool
 
 import click
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
 import mots_tracker
-from mots_tracker import readers, utils
+from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import multi_run_wrapper, print_mot_format
 from mots_tracker.trackers import MedianTracker
-from mots_tracker.vis_utils import M_COLORS
 
 _logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.option("--c", "--cores", default=4)
+@click.option("--c", "--cores", "cores", default=4)
 @click.option(
     "--dp",
     "--data_path",
@@ -132,30 +130,12 @@ def main(
 
             for box_id, bb in enumerate(sample["boxes"]):
                 bb = bb.astype(np.int32)
-                axis_gt.add_patch(
-                    patches.Rectangle(
-                        (bb[0], bb[1]),
-                        bb[2] - bb[0],
-                        bb[3] - bb[1],
-                        fill=False,
-                        lw=3,
-                        color=M_COLORS[box_id],
-                    )
-                )
+                vis_utils.plot_box_patch(axis_gt, bb, box_id)
 
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
-                axis_track.add_patch(
-                    patches.Rectangle(
-                        (box[0], box[1]),
-                        box[2] - box[0],
-                        box[3] - box[1],
-                        fill=False,
-                        lw=3,
-                        color=M_COLORS[idx],
-                    )
-                )
+                vis_utils.plot_box_patch(axis_track, box, idx)
                 if "resize_shape" in reader_config and reader_config["resize_shape"]:
                     width = reader.sequence_info[seq]["img_width"]
                     height = reader.sequence_info[seq]["img_height"]
