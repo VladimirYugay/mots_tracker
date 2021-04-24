@@ -60,6 +60,7 @@ def track_objects(reader, seq_id, output_path, mot_tracker, reader_config):
     out_file = open(os.path.join(output_path, "{}.txt".format(seq_id)), "w")
     print("Processing %s." % seq_id)
     for frame in range(reader.sequence_info[seq_id]["length"]):
+        print("Processing seq: {}, frame: {}".format(seq_id, frame))
         sample = reader.read_sample(seq_id, frame)
         frame += 1
         trackers = mot_tracker.update(sample, sample["intrinsics"])
