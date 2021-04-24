@@ -1,6 +1,7 @@
 """ module with util functions """
 import numpy as np
 import open3d as o3d
+from numpy import cos, sin
 from PIL import Image
 from pycocotools import mask as rletools
 
@@ -244,3 +245,33 @@ def cloud2img(cloud, dims, intrinsics):
     ppts, depth = ppts[valid], depth[valid]
     projected_cloud[ppts[:, 1], ppts[:, 0]] = 1
     return projected_cloud
+
+
+def radians2rot(alpha, beta, gamma):
+    """Converts radians to ration matrix
+    Args:
+        alpha, beta, gamma (float): rotations around x, y, z axis
+    Returns:
+        (ndarray): 3x3 rotation matrix
+    """
+    rx = np.array(
+        [[1, 0, 0], [0, cos(alpha), -sin(alpha)], [0, sin(alpha), cos(alpha)]]
+    )
+    ry = np.array([[cos(beta), 0, sin(beta)], [0, 1, 0], [-sin(beta), 0, cos(beta)]])
+    rz = np.array(
+        [[cos(gamma), -sin(gamma), 0], [sin(gamma), cos(gamma), 0], [0, 0, 1]]
+    )
+    return rz.dot(ry.dot(rx))
+
+
+def rt2transformation(rotation, translation):
+    """Converts rotation and translation to transformation in homogenenous coordinates
+    Args:
+        rotation (ndarray): 3x3 matrix
+        translation (ndarry): (3, ) translation vector
+    Returns:
+        trans (ndarray): (4, 4) transformation matrix
+    """
+    trans = np.concatenate((rotation, translation[:, None]), axis=1)
+    trans = np.concatenate((trans, np.array([0, 0, 0, 1])[None, :]), axis=0)
+    return trans
