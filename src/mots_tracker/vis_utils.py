@@ -177,7 +177,7 @@ def plot_image_masks(image, masks, mask_ids=None):
     plt.show()
 
 
-def plot_ptcloud(point_clouds):
+def plot_ptcloud(point_clouds, show_frame=True):
     """visualizes point cloud
     Args:
         point_cloud (PointCloud): point cloud to visualize
@@ -185,10 +185,12 @@ def plot_ptcloud(point_clouds):
     # rotate down up
     if not isinstance(point_clouds, list):
         point_clouds = [point_clouds]
-    mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-        size=1, origin=[0, 0, 0]
-    )
-    o3d.visualization.draw_geometries(point_clouds + [mesh_frame])
+    if show_frame:
+        mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=1, origin=[0, 0, 0]
+        )
+        point_clouds = point_clouds + [mesh_frame]
+    o3d.visualization.draw_geometries(point_clouds)
 
 
 def plot_box_patch(axis, box, box_id=None):
@@ -271,3 +273,19 @@ def play_clouds_movement(list_of_pcds: []):
     vis.register_animation_callback(forward)
     vis.run()
     vis.destroy_window()
+
+
+def plot_3d_pts(pts, paint=False):
+    """Plots 3d points
+    Args:
+        pts (ndarray): points to plot of shape (n, 3)
+    """
+    fig = plt.figure()
+    ax = fig.gca(projection="3d")
+    color = 0
+    if paint:
+        color = np.arange(pts.shape[0])
+    ax.scatter3D(pts[:, 0], pts[:, 1], pts[:, 2], c=color)
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.show()
