@@ -18,11 +18,11 @@ DEFAULT_CONFIG = {
     "seq_ids": ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"),
     "bbs_file_name": "gt_bb.txt",
     "masks_file_name": "gt.txt",
-    "egomotion_path": "egomotion_ootb",
+    "egomotion_path": None,
 }
 DEFAULT_INTRINSICS = np.array(
-    [[1224.369, 0, 925.2], [0, 674.325, 581.681], [0, 0, 1]]
-)  # thumbnail
+    [[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]
+)
 INTRINSICS = {
     "MOTS20-02": DEFAULT_INTRINSICS,  # gt unknown
     "MOTS20-05": np.array([[501.167, 0, 307.514], [0, 501.049, 229.744], [0, 0, 1]]),
