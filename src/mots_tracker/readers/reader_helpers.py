@@ -2,6 +2,8 @@
 import numpy as np
 from PIL import Image
 
+from mots_tracker import utils
+
 
 def id2imgpath(seq_idx, img_idx, input_dir):
     """creates path from image id
@@ -52,16 +54,20 @@ def read_file_names(path):
     return [str(file_name) for file_name in path.glob("**/*")]
 
 
-def load_motsynth_depth_image(img_path):
+def load_motsynth_depth_image(img_path, shape=None):
     """Load depth image from .png file
     Args:
         img_path (str): path to the image
     Returns:
         ndarray: depth map
     """
-    depth_img = np.array(Image.open(img_path).convert("L"))
+    depth_img = Image.open(img_path).convert("L")
+    if shape is not None:
+        depth_img = depth_img.resize(shape, Image.NEAREST)
+    depth_img = np.array(depth_img)
     depth_img = 255 - depth_img
-    return depth_img
+    depth_img = depth_img / 12  # 1 meter is approximately 12 pixels
+    return np.asarray(depth_img, dtype=np.float32)
 
 
 def read_kitti_bb_file(path):
@@ -148,3 +154,49 @@ def read_mot_seg_file(path):
         mask_strings[i] = mask_string.strip()
     seg_file.close()
     return (seg_data, mask_strings)
+
+
+#
+# def read_motsynth_egomotion_file(path):
+#     """Reads segmentation mot file
+#     Args:
+#         path (str): path to the ground truth egomotion file
+#     Returns:
+#         egomotion (ndarray): array in [n_frames, 4, 4] format
+#     """
+#     ego_file = open(path, "r")
+#     ego_lines = ego_file.readlines()
+#     transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
+#     transformations[0, ...] = np.eye(4)  # init first transformation
+#     for i in range(1, len(ego_lines)):
+#         prev_line = list(map(float, ego_lines[i - 1].split(" ")))
+#         cur_line = list(map(float, ego_lines[i].split(" ")))
+#         T1 = utils.rt2transformation(
+#             utils.radians2rot(*prev_line[:3]), prev_line[3:6]
+#         )
+#         T2 = utils.rt2transformation(
+#             utils.radians2rot(*cur_line[:3]), cur_line[3:6]
+#         )
+#         transformations[i, ...] = T2.dot(np.linalg.inv(T1))
+#     ego_file.close()
+#     return transformations
+
+
+def read_motsynth_egomotion_file(path):
+    """Reads segmentation mot file
+    Args:
+        path (str): path to the ground truth egomotion file
+    Returns:
+        egomotion (ndarray): array in [n_frames, 4, 4] format
+    """
+    ego_file = open(path, "r")
+    ego_lines = ego_file.readlines()
+    transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
+    for i, line in enumerate(ego_lines):
+        line = list(map(float, line.split(" ")))
+        angles = np.array(line[:3], dtype=np.float64)
+        rotation = utils.radians2rot(*angles)
+        translation = np.array(line[3:6], dtype=np.float64)
+        transformations[i, ...] = utils.rt2transformation(rotation, translation)
+    ego_file.close()
+    return transformations
