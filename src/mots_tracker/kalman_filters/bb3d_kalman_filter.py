@@ -6,18 +6,18 @@ from mots_tracker.kalman_filters.base_kalman_filter import BaseKalmanFilter
 
 
 class BB3DKalmanFilter(BaseKalmanFilter):
-    """ This class represents the internel state of individual tracked objects observed as bbox """
+    """ This class represents the state of tracked objects observed as bbox """
 
     count = 0
 
     def __init__(self, bbox3d, info):
-        """Initializes the filter with starting position, info is provided for the sake of submission
+        """Initializes the filter with starting position and additional info
         Args:
-            bbox3d (ndarray): axis aligned bounding box in the format (x, y, z, w, h, l)
+            bbox3d (ndarray): axis aligned bounding box in the format (x, y, z, l, w, h)
             info (dict): dictionary with additional information
         """
         BaseKalmanFilter.__init__(self, bbox3d, info)
-        # define constant velocity model x, y, z, w, h, l, v_x, v_y, v_z
+        # define constant velocity model x, y, z, l, w ,h, v_x, v_y, v_z
         self.state_size = 9
         self.kf = KalmanFilter(dim_x=self.state_size, dim_z=self.observation_size)
         self.kf.F = np.eye(self.state_size)
@@ -29,10 +29,12 @@ class BB3DKalmanFilter(BaseKalmanFilter):
         BB3DKalmanFilter.count += 1
 
     def init_uncertainty(self):
-        pass
+        self.kf.P[6:, 6:] *= 1000
+        self.kf.P *= 10
+        self.kf.Q[6:, 6:] *= 0.01
 
     def predict(self):
-        """ Advances the state vector and returns the predicted bounding box estimate """
+        """ Advances the state vector and returns the predicted bbox estimate """
         self.kf.predict()
         self.age += 1
         if self.time_since_update > 0:
