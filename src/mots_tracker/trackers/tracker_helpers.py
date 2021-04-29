@@ -1,10 +1,15 @@
 """ module with tracker helper functions """
 import numpy as np
 import open3d as o3d
-from bbox.bbox2d import BBox2D
-from bbox.bbox3d import BBox3D
-from bbox.box_modes import XYXY
-from bbox.metrics import jaccard_index_2d, jaccard_index_3d
+
+from mots_tracker.trackers.numba_iou import convert_3dbox_to_8corner, iou3d
+
+# from bbox.bbox2d import BBox2D
+# from bbox.bbox3d import BBox3D
+# from bbox.box_modes import XYXY
+
+
+# from bbox.metrics import jaccard_index_2d, jaccard_index_3d
 
 
 def linear_assignment(cost_matrix):
@@ -34,39 +39,19 @@ def iou3d_matrix(detections, trackers):
     Returns:
         iou3d_matrix (ndarray): nxm matrix with pairwise iou3d
     """
-    # boxes are in format: x, y, z, w, h, l
+    # boxes are in format: x, y, z, dx, dy, dz ~ w, l, d in o3d
     n, m = detections.shape[0], trackers.shape[0]
     iou_matrix = np.zeros((n, m))
     for i, det in enumerate(detections):
         for j, track in enumerate(trackers):
-            det_box = BBox3D(*det)
-            track_box = BBox3D(*track)
-            iou_matrix[i][j] = jaccard_index_3d(det_box, track_box)
+            det_box = convert_3dbox_to_8corner(det)
+            track_box = convert_3dbox_to_8corner(track)
+            iou3d_m, iou2d_m = iou3d(det_box, track_box)
+            iou_matrix[i][j] = iou3d_m
+            # det_box = BBox3D(*det)
+            # track_box = BBox3D(*track)
+            # iou_matrix[i][j] = jaccard_index_3d(det_box, track_box)
     return iou_matrix
-
-
-def iou_combo(detections, trackers, weight=0.8):
-    """computes pairwise 3D IoU and 2D IoU in 3D space between detections and existing bounding boxes
-    Args:
-        detections (ndarray): n bounding boxes as detections in (x, y, z, w, h, l) format
-        trackers (ndarray): m bounding boxes as existing tracking targets
-        weight (float): how much weight to assign to 3D IoU
-    Returns:
-        comb_matrix (ndarray): nxm matrix with pairwise iou3d
-    """
-    n, m = detections.shape[0], trackers.shape[0]
-    comb_matrix = np.zeros((n, m))
-    for i, det in enumerate(detections):
-        for j, track in enumerate(trackers):
-            det_box = BBox3D(*det)
-            track_box = BBox3D(*track)
-            # extract front surfaces of both of the boxes and compute IoU between them
-            det_front_face = BBox2D([*det_box.p1[:2], *det_box.p3[:2]], mode=XYXY)
-            track_front_face = BBox2D([*track_box.p1[:2], *track_box.p3[:2]], mode=XYXY)
-            comb_matrix[i][j] = weight * jaccard_index_3d(det_box, track_box) + (
-                1 - weight
-            ) * jaccard_index_2d(det_front_face, track_front_face)
-    return comb_matrix
 
 
 def iou_masks(detection_masks, tracker_masks):
