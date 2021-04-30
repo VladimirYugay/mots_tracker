@@ -18,7 +18,11 @@ import numpy as np
 
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
-from mots_tracker.readers.reader_helpers import read_mot_bb_file, read_mot_seg_file
+from mots_tracker.readers.reader_helpers import (
+    read_mot_bb_file,
+    read_mot_seg_file,
+    read_motsynth_egomotion_file,
+)
 
 DEFAULT_CONFIG = {
     "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations",
@@ -71,11 +75,9 @@ class MOTSynthReader(object):
         if self.config["depth_path"] is not None:
             depth_path = self.gt_path / seq_id / self.config["depth_path"]
             depth_path = depth_path / "{:0>4d}".format(frame_id)
-            if (
-                self.config["depth_path"] == "gt_depth"
-            ):  # gt depth maps are images, not numpy
+            if self.config["depth_path"] == "gt_depth":
                 depth = reader_helpers.load_motsynth_depth_image(
-                    str(depth_path) + ".png"
+                    str(depth_path) + ".png", self.config["resize_shape"]
                 )
             else:
                 depth = np.load(str(depth_path) + ".npy")
@@ -95,6 +97,13 @@ class MOTSynthReader(object):
                 image = utils.resize_img(image, self.config["resize_shape"])
             if masks is not None:
                 masks = utils.resize_masks(masks, self.config["resize_shape"])
+
+        filtered_mask = self.filter_data(boxes, box_ids)
+        boxes = boxes[filtered_mask]
+        masks = masks[filtered_mask]
+        box_ids = box_ids[filtered_mask]
+        mask_ids = mask_ids[filtered_mask]
+        raw_masks = [None] * mask_ids.shape[0]  # disable for now
         return {
             "boxes": boxes,
             "depth": depth,
@@ -106,6 +115,22 @@ class MOTSynthReader(object):
             "intrinsics": intrinsics,
             "egomotion": egomotion,
         }
+
+    def filter_data(self, boxes, box_ids, threshold=54):
+        """Filters boxes based on height as done in KITTI
+            The same percentage of the height is taken
+        Args:
+            boxes (ndarray): boxes
+            box_ids (ndarray): box ids
+            threshold (int): min height of the box in pixels
+        Returns:
+            filtered_ids (ndarray): filtered box ids
+        """
+        if self.config["resize_shape"] is not None:
+            threshold = threshold * self.config.resize_shape[1] / 1080
+        width = boxes[:, 3] - boxes[:, 1]
+        print(width)
+        return width >= threshold
 
     def _read_seg_masks(self, seq_id, frame_id):
         """read all bounding boxes for a given frame
@@ -149,7 +174,6 @@ class MOTSynthReader(object):
 
     def _init_sequence_info(self):
         seq_ids = set(pth.parts[-1] for pth in self.gt_path.glob("*"))
-        print(seq_ids)
         if self.config["split_path"] is not None:
             split_path = self.gt_path / ".." / self.config["split_path"]
             with open(str(split_path), "r") as file:
@@ -185,12 +209,17 @@ class MOTSynthReader(object):
             mask_path = self.gt_path / seq_id / "gt" / "gt_masks.txt"
             self.cache["masks"] = read_mot_seg_file(mask_path)
 
+        if self.config["egomotion_path"] == "egomotion":  # gt path is egomotion
+            egomotion_path = self.gt_path / seq_id / "gt" / "egomotion.txt"
+            egomotion = read_motsynth_egomotion_file(egomotion_path)
+            self.cache["egomotion"] = egomotion
+
     def _read_egomotion(self, seq_id, frame_id):
-        """read rotation and translation of the camera from (frame_id - 1) to (frame_id)
+        """read rotation and translation of the camera from origin to the current frame
         Args:
             seq_id (str): sequence id
             frame_id (int): frame id
         Returns:
             egomotion (ndarray): array representing rotation and translation
         """
-        raise NotImplementedError
+        return self.cache["egomotion"][frame_id]
