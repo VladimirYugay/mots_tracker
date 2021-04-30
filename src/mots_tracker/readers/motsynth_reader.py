@@ -129,7 +129,6 @@ class MOTSynthReader(object):
         if self.config["resize_shape"] is not None:
             threshold = threshold * self.config.resize_shape[1] / 1080
         width = boxes[:, 3] - boxes[:, 1]
-        print(width)
         return width >= threshold
 
     def _read_seg_masks(self, seq_id, frame_id):
