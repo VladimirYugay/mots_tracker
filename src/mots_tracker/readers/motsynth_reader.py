@@ -98,7 +98,7 @@ class MOTSynthReader(object):
             if masks is not None:
                 masks = utils.resize_masks(masks, self.config["resize_shape"])
 
-        filtered_mask = self.filter_data(boxes, box_ids)
+        filtered_mask = self.filter_data(masks, mask_ids)
         boxes = boxes[filtered_mask]
         masks = masks[filtered_mask]
         box_ids = box_ids[filtered_mask]
@@ -116,9 +116,9 @@ class MOTSynthReader(object):
             "egomotion": egomotion,
         }
 
-    def filter_data(self, boxes, box_ids, threshold=54):
+    def filter_data(self, masks, mask_ids, threshold=54):
         """Filters boxes based on height as done in KITTI
-            The same percentage of the height is taken
+            The same percentage of the image height is taken as in KITTI
         Args:
             boxes (ndarray): boxes
             box_ids (ndarray): box ids
@@ -128,8 +128,13 @@ class MOTSynthReader(object):
         """
         if self.config["resize_shape"] is not None:
             threshold = threshold * self.config.resize_shape[1] / 1080
-        width = boxes[:, 3] - boxes[:, 1]
-        return width >= threshold
+        valid_masks = [True] * len(masks)
+        for i, mask in enumerate(masks):
+            rows, _ = np.where(mask != 0)
+            height = max(rows) - min(rows)
+            if height <= threshold:
+                valid_masks[i] = False
+        return np.array(valid_masks)
 
     def _read_seg_masks(self, seq_id, frame_id):
         """read all bounding boxes for a given frame
