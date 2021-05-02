@@ -57,6 +57,10 @@ def generate_mot_file(ann_name, output_path):
             mask = decode_mask(height, width, mask_string)
             if mask.sum() == 0:  # empty mask
                 continue
+            rows, _ = np.where(mask != 0)
+            height = max(rows) - min(rows)
+            if height < 54:  # mask height threshold
+                continue
             print(
                 "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
                 % (frame_id + 1, person_id, box[0], box[1], box[2], box[3]),
@@ -112,6 +116,7 @@ def create_info_file(ann, output_path):
 
 
 @click.command()
+@click.option("--c", "--cores", "cores", default=4)
 @click.option(
     "--ip",
     "--input_path",
@@ -128,7 +133,7 @@ def create_info_file(ann, output_path):
     type=click.Path(exists=True),
     help="Path to resulting gt annotations",
 )
-def main(input_path, output_path):
+def main(input_path, output_path, cores):
     logging.basicConfig(
         stream=sys.stdout,
         level=logging.INFO,
@@ -140,7 +145,7 @@ def main(input_path, output_path):
     output_path.mkdir(parents=True, exist_ok=True)
     logging.log(logging.INFO, "Start generating bb gt")
 
-    pool = Pool(7)  # leave one core for convenience
+    pool = Pool(cores)
     ann_names = sorted(input_path.glob("*"), key=lambda path: str(path))
     args = [(am, output_path) for am in ann_names]
     pool.map(multi_run_wrapper, args)
