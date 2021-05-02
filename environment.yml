@@ -10,6 +10,7 @@ dependencies:
   - lap==0.4.0
   - matplotlib==3.3.3
   - nb_conda
+  - numba
   - numpy>=1.13.3
   - opencv>=4.1.0.25
   - open3d==0.9.0
