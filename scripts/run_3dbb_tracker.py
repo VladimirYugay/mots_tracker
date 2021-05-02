@@ -116,9 +116,9 @@ def main(
         out_file = open(os.path.join(output_path, "{}.txt".format(seq)), "w")
         logging.log(log_level, "Processing %s." % seq)
         for frame in range(reader.sequence_info[seq]["length"]):
-            logging.log(log_level, "Processing frame {}".format(frame + 1))
             sample = reader.read_sample(seq, frame)
             frame += 1
+            logging.log(log_level, "Processing frame {}".format(frame))
 
             axis_track.imshow(sample["image"])
             axis_track.set_title("Sequence: {}, frame: {}".format(seq, frame))
@@ -127,17 +127,13 @@ def main(
 
             for box_id, bb in zip(sample["box_ids"], sample["boxes"]):
                 bb = bb.astype(np.int32)
-                vis_utils.plot_box_patch(
-                    axis_gt, bb, int(box_id % len(vis_utils.M_COLORS))
-                )
+                vis_utils.plot_box_patch(axis_gt, bb, box_id)
 
             trackers = mot_tracker.update(sample, sample["intrinsics"])
 
             for (_, _, box, idx) in trackers:
                 if display:
-                    vis_utils.plot_box_patch(
-                        axis_track, box, idx % len(vis_utils.M_COLORS)
-                    )
+                    vis_utils.plot_box_patch(axis_track, box, idx)
                 if "resize_shape" in reader_config and reader_config["resize_shape"]:
                     width = reader.sequence_info[seq]["img_width"]
                     height = reader.sequence_info[seq]["img_height"]
