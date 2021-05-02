@@ -4,7 +4,11 @@ import numpy as np
 from mots_tracker import utils
 from mots_tracker.kalman_filters.median_kalman_filter import MedianKalmanFilter
 from mots_tracker.trackers.base_tracker import BaseTracker
-from mots_tracker.trackers.tracker_helpers import linear_assignment, pairwise_distance
+from mots_tracker.trackers.tracker_helpers import (
+    depth_median_filter,
+    linear_assignment,
+    pairwise_distance,
+)
 
 
 class MedianTracker(BaseTracker):
@@ -16,7 +20,13 @@ class MedianTracker(BaseTracker):
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
-        clouds = utils.compute_mask_clouds(sample)
+        clouds = utils.masks2clouds(
+            sample["image"],
+            sample["depth"],
+            sample["masks"],
+            sample["intrinsics"],
+            depth_median_filter,
+        )
         medians = np.array(
             [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
         )

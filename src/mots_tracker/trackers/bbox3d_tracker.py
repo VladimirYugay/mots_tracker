@@ -1,6 +1,7 @@
 """ Class for tracking 3D bounding boxes """
 import numpy as np
 
+from mots_tracker import utils
 from mots_tracker.kalman_filters.bb3d_kalman_filter import BB3DKalmanFilter
 from mots_tracker.trackers.base_tracker import BaseTracker
 from mots_tracker.trackers.tracker_helpers import (
@@ -8,7 +9,7 @@ from mots_tracker.trackers.tracker_helpers import (
     iou3d_matrix,
     linear_assignment,
 )
-from mots_tracker.utils import compute_axis_aligned_bbs, patch_masks, rgbd2ptcloud
+from mots_tracker.utils import compute_axis_aligned_bbs
 
 
 class BBox3dTracker(BaseTracker):
@@ -16,18 +17,14 @@ class BBox3dTracker(BaseTracker):
         BaseTracker.__init__(
             self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
         )
-        self.representation_size = 6  # x, y, z, l, w, h
+        self.representation_size = 6  # x, y, z, d_x, d_y, d_z ~ w, l, d in o3d
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the objects to track """
         image, masks, depth = sample["image"], sample["masks"], sample["depth"]
-        img_patches, depth_patches = patch_masks(image, masks), patch_masks(
-            depth, masks
+        clouds = utils.masks2clouds(
+            image, depth, masks, sample["intrinsics"], depth_median_filter
         )
-        clouds = [
-            rgbd2ptcloud(img_patch, depth_patch, intrinsics, depth_median_filter)
-            for img_patch, depth_patch in zip(img_patches, depth_patches)
-        ]
         boxes = compute_axis_aligned_bbs(clouds)
         representations, info = [], {}  # for the sake of speedup
         for cloud_id, box in boxes.items():
@@ -66,7 +63,7 @@ class BBox3dTracker(BaseTracker):
         return ret
 
     def associate_detections_to_trackers(self, detections, trackers):
-        """ Assigns detections to tracked object (both represented as bounding boxes) """
+        """ Assigns detections to tracked object (both represented as bb) """
         if len(trackers) == 0:
             return (
                 np.empty((0, 2), dtype=int),

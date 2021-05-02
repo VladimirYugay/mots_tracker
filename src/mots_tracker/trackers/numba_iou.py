@@ -2,15 +2,18 @@
 # email: xinshuo.weng@gmail.com
 
 import numpy as np
+from numba import jit
 from scipy.spatial import ConvexHull
 
 
+@jit(nopython=True)
 def poly_area(x, y):
     """Ref: http://stackoverflow.com/questions/24467972/calculate-area-
     of-polygon-given-x-y-coordinates"""
     return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
+@jit(nopython=True)
 def box3d_vol(corners):
     """ corners: (8,3) no assumption on axis direction """
     a = np.sqrt(np.sum((corners[0, :] - corners[1, :]) ** 2))
