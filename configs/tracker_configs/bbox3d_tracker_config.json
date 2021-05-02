@@ -1,5 +1,5 @@
 {
-  "max_age": 1,
-  "min_hits": 3,
+  "max_age": 15,
+  "min_hits": 1,
   "threshold": 0.001
 }
