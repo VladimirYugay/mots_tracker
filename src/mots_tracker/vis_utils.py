@@ -202,6 +202,7 @@ def plot_box_patch(axis, box, box_id=None):
     """
     if box_id is None:
         box_id = 0
+    color = M_COLORS[int(box_id) % len(M_COLORS)]
     axis.add_patch(
         patches.Rectangle(
             (box[0], box[1]),
@@ -209,9 +210,10 @@ def plot_box_patch(axis, box, box_id=None):
             box[3] - box[1],
             fill=False,
             lw=3,
-            color=M_COLORS[box_id],
+            color=color,
         )
     )
+    axis.text(*utils.compute_box_center(box), box_id, color=color)
 
 
 def play_clouds_movement(list_of_pcds: []):
