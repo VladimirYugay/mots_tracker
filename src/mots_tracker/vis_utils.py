@@ -282,10 +282,37 @@ def plot_3d_pts(pts, paint=False):
     """
     fig = plt.figure()
     ax = fig.gca(projection="3d")
-    color = 0
+    color = np.zeros(pts.shape[0])
     if paint:
         color = np.arange(pts.shape[0])
     ax.scatter3D(pts[:, 0], pts[:, 1], pts[:, 2], c=color)
     plt.xlabel("X")
     plt.ylabel("Y")
+    plt.show()
+
+
+def plot_2d_pts(pts, paint=True, axis_names=("X", "Y")):
+    """Plots 3d points
+    Args:
+        pts (ndarray): points to plot of shape (n, 2)
+    """
+    color = np.zeros(pts.shape[0])
+    if paint:
+        color = np.arange(pts.shape[0])
+    plt.scatter(pts[:, 0], pts[:, 1], c=color)
+    plt.xlabel(axis_names[0])
+    plt.ylabel(axis_names[1])
+    plt.show()
+
+
+def plot_1d_pts(pts, paint=True, axis_name="X"):
+    """Plots 3d points
+    Args:
+        pts (ndarray): points to plot of shape (n, 2)
+    """
+    color = np.zeros(pts.shape[0])
+    if paint:
+        color = np.arange(pts.shape[0])
+    plt.scatter(np.arange(pts.shape[0]), pts, c=color)
+    plt.xlabel(axis_name)
     plt.show()
