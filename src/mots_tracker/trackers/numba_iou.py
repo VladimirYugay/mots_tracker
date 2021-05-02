@@ -16,10 +16,10 @@ def poly_area(x, y):
 @jit(nopython=True)
 def box3d_vol(corners):
     """ corners: (8,3) no assumption on axis direction """
-    a = np.sqrt(np.sum((corners[0, :] - corners[1, :]) ** 2))
-    b = np.sqrt(np.sum((corners[1, :] - corners[2, :]) ** 2))
-    c = np.sqrt(np.sum((corners[0, :] - corners[4, :]) ** 2))
-    return a * b * c
+    dx = np.linalg.norm(corners[0, :] - corners[2, :])
+    dy = np.linalg.norm(corners[0, :] - corners[1, :])
+    dz = np.linalg.norm(corners[0, :] - corners[4, :])
+    return dx * dy * dz
 
 
 def convex_hull_intersection(p1, p2):
@@ -98,24 +98,18 @@ def iou3d(corners1, corners2):
     todo (rqi): add more description on corner points' orders.
     """
     # corner points are in counter clockwise order
-    rect1 = [(corners1[i, 0], corners1[i, 2]) for i in range(3, -1, -1)]
-    rect2 = [(corners2[i, 0], corners2[i, 2]) for i in range(3, -1, -1)]
-    area1 = poly_area(np.array(rect1)[:, 0], np.array(rect1)[:, 1])
-    area2 = poly_area(np.array(rect2)[:, 0], np.array(rect2)[:, 1])
+    rows, cols = np.array([0, 4, 6, 2]), np.array(
+        [0, 2]
+    )  # clock-wise order, dz and dx axis
+    top_rect1 = corners1[rows, :][:, cols]
+    top_rect2 = corners2[rows, :][:, cols]
+    area1 = poly_area(top_rect1[:, 0], top_rect1[:, 1])
+    area2 = poly_area(top_rect2[:, 0], top_rect2[:, 1])
 
-    # inter_area = shapely_polygon_intersection(rect1, rect2)
-    _, inter_area = convex_hull_intersection(rect1, rect2)
-
-    # try:
-    #   _, inter_area = convex_hull_intersection(rect1, rect2)
-    # except ValueError:
-    #   inter_area = 0
-    # except scipy.spatial.qhull.QhullError:
-    #   inter_area = 0
-
+    _, inter_area = convex_hull_intersection(top_rect1, top_rect2)
     iou_2d = inter_area / (area1 + area2 - inter_area)
     ymax = min(corners1[0, 1], corners2[0, 1])
-    ymin = max(corners1[4, 1], corners2[4, 1])
+    ymin = max(corners1[1, 1], corners2[1, 1])
     inter_vol = inter_area * max(0.0, ymax - ymin)
     vol1 = box3d_vol(corners1)
     vol2 = box3d_vol(corners2)
@@ -140,35 +134,17 @@ def convert_3dbox_to_8corner(bbox3d_input):
     """
     # compute rotational matrix around yaw axis
     bbox3d = bbox3d_input.copy()
-
     R = np.eye(3)
-
-    # 3d bounding box dimensions
-    length = bbox3d[3]
-    w = bbox3d[4]
-    h = bbox3d[5]
-
-    # 3d bounding box corners
+    dx, dy, dz = bbox3d[3:6]
     x_corners = np.array(
-        [
-            length / 2,
-            length / 2,
-            -length / 2,
-            -length / 2,
-            length / 2,
-            length / 2,
-            -length / 2,
-            -length / 2,
-        ]
+        [dx / 2, dx / 2, -dx / 2, -dx / 2, dx / 2, dx / 2, -dx / 2, -dx / 2]
     )
-    y_corners = np.array([0, 0, 0, 0, -h, -h, -h, -h])
-    z_corners = np.array([w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2])
-
-    # rotate and translate 3d bounding box
+    y_corners = np.array(
+        [dy / 2, -dy / 2, dy / 2, -dy / 2, dy / 2, -dy / 2, dy / 2, -dy / 2]
+    )
+    z_corners = np.array(
+        [-dz / 2, -dz / 2, -dz / 2, -dz / 2, dz / 2, dz / 2, dz / 2, dz / 2]
+    )
     corners_3d = np.dot(R, np.vstack((x_corners, y_corners, z_corners)))
-    # print corners_3d.shape
-    corners_3d[0, :] = corners_3d[0, :] + bbox3d[0]
-    corners_3d[1, :] = corners_3d[1, :] + bbox3d[1]
-    corners_3d[2, :] = corners_3d[2, :] + bbox3d[2]
-
-    return np.transpose(corners_3d)
+    corners_3d += bbox3d[:3, None]
+    return corners_3d.T
