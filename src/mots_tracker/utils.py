@@ -80,21 +80,71 @@ def patch_boxes(image, boxes):
 def patch_masks(image, masks):
     """Creates image patches with only mask regions visible
     Args:
-        image (ndarray): depth of RGB image of (h, w, c) or (h, w) shape
+        image (ndarray): depth or RGB image of (h, w) or (h, w, c) shape
         masks (ndarray): masks to apply of (h, w) shape
     Returns:
         patches (ndarray): patches of (n, h, w, c) or (n, h, w) shape
     """
-    patches = np.repeat(
-        image[
-            None,
-        ],
-        masks.shape[0],
-        axis=0,
-    )
-    for i, mask in enumerate(masks):
-        patches[i, :][mask == 0] = 0
+    patches = np.repeat(image[None, ...], masks.shape[0], axis=0)
+    if len(image.shape) == 3:
+        masks = np.repeat(masks[..., None], image.shape[2], axis=-1)
+    patches[masks == 0] = 0
     return patches
+
+
+def masks2clouds(image, depth, masks, intrinsics, filter_func=None):
+    """Creates point clouds from pedestrian masks
+    Args:
+        image (ndarray): color image
+        depth (ndarray): depth map
+        masks (ndarray): seg masks
+        intrinsics (ndarray): intrinsic parameters
+        filter_func (func): function to apply to resulting pt clouds
+    Returns:
+        pt_clouds (list(PointCloud)): resulting point clouds
+    """
+    fx, fy = intrinsics[0][0], intrinsics[1][1]
+    cx, cy = intrinsics[0][2], intrinsics[1][2]
+    image = (image - image.min()) / (image.max() - image.min())
+    pt_clouds = []
+    for mask in masks:
+        z = depth[mask == 1]
+        u, v = np.where(mask == 1)
+        colors = image[u, v, ...]
+        x = (u - cx) / fx * z
+        y = (v - cy) / fy * z
+        pts = np.vstack((y, x, z)).T
+        pt_cloud = o3d.geometry.PointCloud()
+        pt_cloud.points = o3d.utility.Vector3dVector(pts)
+        pt_cloud.colors = o3d.utility.Vector3dVector(colors)
+        if filter_func is not None:
+            pt_cloud = filter_func(pt_cloud)
+        pt_clouds.append(pt_cloud)
+    return pt_clouds
+
+
+def create_cloud(image, depth, intrinsics, filter_func=None):
+    """Creates a point cloud from the whole image and depth map
+    Args:
+        image (ndarray): color image
+        depth (ndarray): depth map
+        intrinsics (ndarray): intrinsic parameters
+        filter_func (func): function to apply to resulting pt clouds
+    Returns:
+        pt_clouds (PointCloud): resulting point clouds
+    """
+    fx, fy = intrinsics[0][0], intrinsics[1][1]
+    cx, cy = intrinsics[0][2], intrinsics[1][2]
+    image = (image - image.min()) / (image.max() - image.min())
+    u, v = np.where(depth != 0)
+    z = depth[depth != 0]
+    x = (u - cx) / fx * z
+    y = (v - cy) / fy * z
+    pts = np.vstack((y, x, z)).T
+    pt_cloud = o3d.geometry.PointCloud()
+    pt_cloud.points = o3d.utility.Vector3dVector(pts)
+    pt_cloud.colors = o3d.utility.Vector3dVector(image[u, v, ...])
+    return pt_cloud
 
 
 def decode_mask(height, width, mask_string):
@@ -125,6 +175,25 @@ def compute_axis_aligned_bbs(clouds):
     for i, cloud in enumerate(clouds):
         try:
             box = cloud.get_axis_aligned_bounding_box()
+            boxes[i] = box
+        except Exception:
+            continue
+    return boxes
+
+
+def compute_oriented_bbs(clouds):
+    """Computes axis aligned bounding boxes for the point clouds
+        Note: number of boxes might not match number of clouds
+        Returning dictionary to handle this possibility
+    Args:
+        clouds (list(o3d.geometry.PointCloud): point clouds to compute bounding boxes of
+    Returns:
+        boxes (dict(o3d.geometry.AxisAlignedBoundingBox): axis aligned bounding boxes
+    """
+    boxes = {i: None for i in range(len(clouds))}
+    for i, cloud in enumerate(clouds):
+        try:
+            box = cloud.get_oriented_bounding_box()
             boxes[i] = box
         except Exception:
             continue
