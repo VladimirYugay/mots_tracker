@@ -1,6 +1,7 @@
 """ Module with MOTS2020 data reader helper functions """
 import numpy as np
 from PIL import Image
+from scipy.spatial.transform import Rotation as R
 
 from mots_tracker import utils
 
@@ -66,7 +67,7 @@ def load_motsynth_depth_image(img_path, shape=None):
         depth_img = depth_img.resize(shape, Image.NEAREST)
     depth_img = np.array(depth_img)
     depth_img = 255 - depth_img
-    depth_img = depth_img / 12  # 1 meter is approximately 12 pixels
+    depth_img = depth_img / 12  # 1 meter is approximately 12 "values"
     return np.asarray(depth_img, dtype=np.float32)
 
 
@@ -174,13 +175,12 @@ def read_mot_seg_file(path):
 #             list(map(float, ego_lines[i - 1].split(" "))), dtype=np.float64)
 #         cur_line = np.array(
 #             list(map(float, ego_lines[i].split(" "))), dtype=np.float64)
-#         diff = cur_line - prev_line  # difference in position and angles
+#         diff = cur_line - prev_line  # difference in angles and position
 #         transformations[i, ...] = utils.rt2transformation(
-#             utils.radians2rot(diff[0], diff[1], diff[2]), diff[3:6]
+#             utils.radians2rot(*diff[:3]), diff[3:6]
 #         )
 #     ego_file.close()
 #     return transformations
-#
 
 
 # def read_motsynth_egomotion_file(path):
@@ -227,9 +227,9 @@ def read_motsynth_egomotion_file(path):
     for i, line in enumerate(ego_lines):
         line = list(map(float, line.split(" ")))
         angles = np.array(line[:3], dtype=np.float64)
-        # in coordinates w.r.t. to fov, we have axis switched
-        rotation = utils.radians2rot(-angles[2], 0, 0)
-        translation = np.array([0, 0, 0], dtype=np.float64)
+        rotation = np.deg2rad([angles[0], -angles[2], angles[1]])
+        rotation = R.from_rotvec(rotation).as_matrix()
+        translation = np.array([line[3], -line[5], line[4]], dtype=np.float64)
         transformations[i, ...] = utils.rt2transformation(rotation, translation)
     ego_file.close()
     return transformations
