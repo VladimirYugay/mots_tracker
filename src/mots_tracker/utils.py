@@ -4,8 +4,6 @@ import open3d as o3d
 from PIL import Image
 from pycocotools import mask as rletools
 
-from mots_tracker import vis_utils
-
 
 def resize_img(img, img_shape):
     """ resizes an image """
@@ -54,41 +52,6 @@ def scale_intrinsics(intrinsics, old_shape, new_shape):
     intrinsics[0, :] *= new_shape[0] / old_shape[0]
     intrinsics[1, :] *= new_shape[1] / old_shape[1]
     return intrinsics
-
-
-def patch_boxes(image, boxes):
-    """Creates image patches with only box regions visible
-    Args:
-        image (ndarray): depth of RGB image of (h, w, c) or (h, w) shape
-        boxes (ndarray): boxes to apply of (n, top_left, bottom_right) format
-    Returns:
-        patches (ndarray): patches of (n, h, w, c) or (n, h, w) shape
-    """
-    boxes = boxes.astype(np.int16)
-    patches = np.full([boxes.shape[0], *image.shape], 0)
-    for i, box in enumerate(boxes):
-        width, height = box[2] - box[0], box[3] - box[1]
-        patches[
-            i,
-            box[1] : box[1] + height,
-            box[0] : box[0] + width,
-        ] = image[box[1] : box[1] + height, box[0] : box[0] + width]
-    return patches
-
-
-def patch_masks(image, masks):
-    """Creates image patches with only mask regions visible
-    Args:
-        image (ndarray): depth or RGB image of (h, w) or (h, w, c) shape
-        masks (ndarray): masks to apply of (h, w) shape
-    Returns:
-        patches (ndarray): patches of (n, h, w, c) or (n, h, w) shape
-    """
-    patches = np.repeat(image[None, ...], masks.shape[0], axis=0)
-    if len(image.shape) == 3:
-        masks = np.repeat(masks[..., None], image.shape[2], axis=-1)
-    patches[masks == 0] = 0
-    return patches
 
 
 def masks2clouds(image, depth, masks, intrinsics, filter_func=None):
@@ -233,28 +196,6 @@ def save_img(img, path):
     img_type = "RGB" if len(img.shape) == 3 else "L"
     img = Image.fromarray(img, mode=img_type)
     img.save(path)
-
-
-def compute_mask_clouds(sample, filter_func=None, color_weight=None):
-    """Compute pedestrian point clouds from a sample, Syntactic SUGAR
-    Args:
-        sample (dict): containing image, depth, masks, intrinsics
-        filter_func (function): filter function to apply to the point clouds
-        color_weight (float): color weight to colorize point clouds
-    Returns:
-        list (o3d.geometry.PointCloud): point clouds
-    """
-    intrinsics = sample["intrinsics"]
-    img_patches = patch_masks(sample["image"], sample["masks"])
-    if color_weight is not None:
-        img_patches = vis_utils.colorize_patches(
-            img_patches, color_weight, sample["box_ids"]
-        )
-    depth_patches = patch_masks(sample["depth"], sample["masks"])
-    return [
-        rgbd2ptcloud(img_patch, depth_patch, intrinsics, filter_func)
-        for img_patch, depth_patch in zip(img_patches, depth_patches)
-    ]
 
 
 def cloud2img(cloud, dims, intrinsics):
