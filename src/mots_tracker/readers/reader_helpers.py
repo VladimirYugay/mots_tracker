@@ -157,65 +157,8 @@ def read_mot_seg_file(path):
     return (seg_data, mask_strings)
 
 
-# def read_motsynth_egomotion_file(path):
-#     """Reads segmentation mot file with relational positioning
-#     Args:
-#         path (str): path to the ground truth egomotion file
-#     Returns:
-#         egomotion (ndarray): array in [n_frames, 4, 4] format
-#     """
-#     ego_file = open(path, "r")
-#     ego_lines = ego_file.readlines()
-#     transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
-#     # inti from strart pose
-#     start_line = np.array(list(map(float, ego_lines[0].split(" "))), dtype=np.float64)
-#     transformations[0, ...] = np.eye(4)
-#     for i in range(1, len(ego_lines)):
-#         prev_line = np.array(
-#             list(map(float, ego_lines[i - 1].split(" "))), dtype=np.float64)
-#         cur_line = np.array(
-#             list(map(float, ego_lines[i].split(" "))), dtype=np.float64)
-#         diff = cur_line - prev_line  # difference in angles and position
-#         transformations[i, ...] = utils.rt2transformation(
-#             utils.radians2rot(*diff[:3]), diff[3:6]
-#         )
-#     ego_file.close()
-#     return transformations
-
-
-# def read_motsynth_egomotion_file(path):
-#     """Reads segmentation mot file with relative positioning
-#     Args:
-#         path (str): path to the ground truth egomotion file
-#     Returns:
-#         egomotion (ndarray): array in [n_frames, 4, 4] format
-#     """
-#     ego_file = open(path, "r")
-#     ego_lines = ego_file.readlines()
-#     transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
-#     # inti from strart pose
-#     start_line = np.array(list(map(float, ego_lines[0].split(" "))), dtype=np.float64)
-#     transformations[0, ...] = utils.rt2transformation(
-#             utils.radians2rot(*start_line[:3]), start_line[3:6]
-#         )
-#     for i in range(1, len(ego_lines)):
-#         prev_line = np.array(
-#             list(map(float, ego_lines[i - 1].split(" "))), dtype=np.float64)
-#         cur_line = np.array(
-#             list(map(float, ego_lines[i].split(" "))), dtype=np.float64)
-#         T1 = utils.rt2transformation(
-#             utils.radians2rot(*prev_line[:3]), prev_line[3:6]
-#         )
-#         T2 = utils.rt2transformation(
-#             utils.radians2rot(*cur_line[:3]), cur_line[3:6]
-#         )
-#         transformations[i, ...] = T2.dot(np.linalg.inv(T1))
-#     ego_file.close()
-#     return transformations
-
-
 def read_motsynth_egomotion_file(path):
-    """Reads segmentation mot file with absolute positioning
+    """Reads segmentation mot file with relational positioning
     Args:
         path (str): path to the ground truth egomotion file
     Returns:
@@ -224,12 +167,37 @@ def read_motsynth_egomotion_file(path):
     ego_file = open(path, "r")
     ego_lines = ego_file.readlines()
     transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
-    for i, line in enumerate(ego_lines):
-        line = list(map(float, line.split(" ")))
-        angles = np.array(line[:3], dtype=np.float64)
-        rotation = np.deg2rad([angles[0], -angles[2], angles[1]])
+    transformations[0, ...] = np.eye(4)
+    for i in range(1, len(ego_lines)):
+        prev_line = np.array(
+            list(map(float, ego_lines[i - 1].split(" "))), dtype=np.float64
+        )
+        cur_line = np.array(list(map(float, ego_lines[i].split(" "))), dtype=np.float64)
+        diff = cur_line - prev_line  # difference in angles and position
+        rotation = np.deg2rad([diff[0], -diff[2], diff[1]])
         rotation = R.from_rotvec(rotation).as_matrix()
-        translation = np.array([line[3], -line[5], line[4]], dtype=np.float64)
+        translation = np.array([diff[3], -diff[5], diff[4]], dtype=np.float64)
         transformations[i, ...] = utils.rt2transformation(rotation, translation)
     ego_file.close()
     return transformations
+
+
+# def read_motsynth_egomotion_file(path):
+#     """Reads segmentation mot file with absolute positioning
+#     Args:
+#         path (str): path to the ground truth egomotion file
+#     Returns:
+#         egomotion (ndarray): array in [n_frames, 4, 4] format
+#     """
+#     ego_file = open(path, "r")
+#     ego_lines = ego_file.readlines()
+#     transformations = np.zeros((len(ego_lines), 4, 4), dtype=np.float64)
+#     for i, line in enumerate(ego_lines):
+#         line = list(map(float, line.split(" ")))
+#         angles = np.array(line[:3], dtype=np.float64)
+#         rotation = np.deg2rad([angles[0], -angles[2], angles[1]])
+#         rotation = R.from_rotvec(rotation).as_matrix()
+#         translation = np.array([line[3], -line[5], line[4]], dtype=np.float64)
+#         transformations[i, ...] = utils.rt2transformation(rotation, translation)
+#     ego_file.close()
+#     return transformations
