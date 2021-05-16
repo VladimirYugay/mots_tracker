@@ -1,7 +1,6 @@
 """ module with util functions """
 import numpy as np
 import open3d as o3d
-from numpy import cos, sin
 from PIL import Image
 from pycocotools import mask as rletools
 
@@ -93,58 +92,30 @@ def patch_masks(image, masks):
 
 
 def masks2clouds(image, depth, masks, intrinsics, filter_func=None):
-    """Creates point clouds from pedestrian masks
+    """creates point clouds corresponding to masks
     Args:
-        image (ndarray): color image
+        img (ndarray): rgb image
         depth (ndarray): depth map
-        masks (ndarray): seg masks
-        intrinsics (ndarray): intrinsic parameters
-        filter_func (func): function to apply to resulting pt clouds
+        intrinsics (ndarray): intrinsics matrix
+        filter_func (function): filter to apply to the point cloud
     Returns:
         pt_clouds (list(PointCloud)): resulting point clouds
     """
-    fx, fy = intrinsics[0][0], intrinsics[1][1]
-    cx, cy = intrinsics[0][2], intrinsics[1][2]
-    image = (image - image.min()) / (image.max() - image.min())
     pt_clouds = []
+    n_rows, n_cols = depth.shape
+    scene = rgbd2ptcloud(image, depth, intrinsics)
+    scene_pts = np.asarray(scene.points)
+    scene_colors = np.asarray(scene.colors)
     for mask in masks:
-        z = depth[mask == 1]
         u, v = np.where(mask == 1)
-        colors = image[u, v, ...]
-        x = (u - cx) / fx * z
-        y = (v - cy) / fy * z
-        pts = np.vstack((y, x, z)).T
+        ids = u * n_cols + v
         pt_cloud = o3d.geometry.PointCloud()
-        pt_cloud.points = o3d.utility.Vector3dVector(pts)
-        pt_cloud.colors = o3d.utility.Vector3dVector(colors)
+        pt_cloud.points = o3d.utility.Vector3dVector(scene_pts[ids])
+        pt_cloud.colors = o3d.utility.Vector3dVector(scene_colors[ids])
         if filter_func is not None:
             pt_cloud = filter_func(pt_cloud)
         pt_clouds.append(pt_cloud)
     return pt_clouds
-
-
-def create_cloud(image, depth, intrinsics, filter_func=None):
-    """Creates a point cloud from the whole image and depth map
-    Args:
-        image (ndarray): color image
-        depth (ndarray): depth map
-        intrinsics (ndarray): intrinsic parameters
-        filter_func (func): function to apply to resulting pt clouds
-    Returns:
-        pt_clouds (PointCloud): resulting point clouds
-    """
-    fx, fy = intrinsics[0][0], intrinsics[1][1]
-    cx, cy = intrinsics[0][2], intrinsics[1][2]
-    image = (image - image.min()) / (image.max() - image.min())
-    u, v = np.where(depth != 0)
-    z = depth[depth != 0]
-    x = (u - cx) / fx * z
-    y = (v - cy) / fy * z
-    pts = np.vstack((y, x, z)).T
-    pt_cloud = o3d.geometry.PointCloud()
-    pt_cloud.points = o3d.utility.Vector3dVector(pts)
-    pt_cloud.colors = o3d.utility.Vector3dVector(image[u, v, ...])
-    return pt_cloud
 
 
 def decode_mask(height, width, mask_string):
@@ -314,23 +285,6 @@ def cloud2img(cloud, dims, intrinsics):
     ppts, depth = ppts[valid], depth[valid]
     projected_cloud[ppts[:, 1], ppts[:, 0]] = 1
     return projected_cloud
-
-
-def radians2rot(alpha, beta, gamma):
-    """Converts radians to ration matrix
-    Args:
-        alpha, beta, gamma (float): rotations around x, y, z axis
-    Returns:
-        (ndarray): 3x3 rotation matrix
-    """
-    rx = np.array(
-        [[1, 0, 0], [0, cos(alpha), -sin(alpha)], [0, sin(alpha), cos(alpha)]]
-    )
-    ry = np.array([[cos(beta), 0, sin(beta)], [0, 1, 0], [-sin(beta), 0, cos(beta)]])
-    rz = np.array(
-        [[cos(gamma), -sin(gamma), 0], [sin(gamma), cos(gamma), 0], [0, 0, 1]]
-    )
-    return rz.dot(ry.dot(rx))
 
 
 def rt2transformation(rotation, translation):
