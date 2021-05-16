@@ -60,7 +60,11 @@ def main(data_dir, output_dir, proportions, test_seqs_path, only_dynamic):
     print("Splitting sequences in proportions: {}".format(proportions))
     np.random.seed(42)
 
-    test_seqs = set(np.load(test_seqs_path))
+    with open(test_seqs_path, "r") as test_file:
+        test_seqs = set([line.strip() for line in test_file.readlines()])
+        print(test_seqs)
+
+    print("Test seqs num: {}", len(test_seqs))
     static_seq_ids, dynamic_seq_ids = [], []
     parser = ConfigParser()
     for seq_path in sorted((data_dir / "all").glob("*"), key=lambda p: str(p)):
@@ -80,9 +84,11 @@ def main(data_dir, output_dir, proportions, test_seqs_path, only_dynamic):
 
     def split_data(data, p=(0.8, 0.2)):
         """ Splits data in train, val"""
+        if data.shape[0] == 0:
+            return np.array([]), np.array([])
         np.random.shuffle(data)
         n = data.shape[0]
-        return data[:, int(n * p[0])], data[int(n * p[0]) :]
+        return data[: int(n * p[0])], data[int(n * p[0]) :]
 
     st_train, st_val = split_data(static_seq_ids, proportions)
     print(
@@ -107,7 +113,7 @@ def main(data_dir, output_dir, proportions, test_seqs_path, only_dynamic):
             train_ids.shape[0], val_ids.shape[0], len(test_seqs)
         )
     )
-    output_path = Path(output_dir) / "split_{}_{}_{}".format(*proportions)
+    output_path = Path(output_dir) / "split_{}_{}_{}".format(*proportions, only_dynamic)
     output_path.mkdir(parents=True, exist_ok=True)
     np.savetxt(str(output_path / "train.txt"), train_ids, fmt="%s")
     np.savetxt(str(output_path / "val.txt"), val_ids, fmt="%s")
