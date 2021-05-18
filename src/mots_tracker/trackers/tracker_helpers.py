@@ -47,10 +47,7 @@ def iou3d_matrix(detections, trackers):
             det_box = convert_3dbox_to_8corner(det)
             track_box = convert_3dbox_to_8corner(track)
             iou3d_m, iou2d_m = iou3d(det_box, track_box)
-            iou_matrix[i][j] = iou3d_m
-            # det_box = BBox3D(*det)
-            # track_box = BBox3D(*track)
-            # iou_matrix[i][j] = jaccard_index_3d(det_box, track_box)
+            iou_matrix[i][j] = 0.8 * iou3d_m + 0.2 * iou2d_m
     return iou_matrix
 
 
@@ -127,7 +124,9 @@ def depth_median_filter(cloud, radius=0.3):
     filtered_cloud = o3d.geometry.PointCloud()
     pts, colors = np.asarray(cloud.points), np.asarray(cloud.colors)
     dist = np.linalg.norm((pts[:, -1] - np.median(pts[:, -1]))[:, None], axis=1)
-    pts, colors = pts[dist <= radius], colors[dist <= radius]
+    pts = pts[dist <= radius]
     filtered_cloud.points = o3d.utility.Vector3dVector(pts)
-    filtered_cloud.colors = o3d.utility.Vector3dVector(colors)
+    if colors.size != 0:
+        colors = colors[dist <= radius]
+        filtered_cloud.colors = o3d.utility.Vector3dVector(colors)
     return filtered_cloud

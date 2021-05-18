@@ -305,7 +305,7 @@ def compute_mask_clouds(sample, filter_func=None, color_weight=None):
     ]
 
 
-def compute_mask_clouds_no_color(sample, filter_func=None, color_weight=None):
+def compute_mask_clouds_no_color(sample, filter_func=None):
     """Compute pedestrian point clouds from a sample, Syntactic SUGAR
     Args:
         sample (dict): containing image, depth, masks, intrinsics
