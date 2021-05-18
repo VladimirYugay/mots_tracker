@@ -1,6 +1,5 @@
 """ module for visualization utils """
 import time
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -85,49 +84,6 @@ def plot_topview(
             plt.scatter(
                 c_x / pixels_in_meter, depth / depth_in_meter, color=M_COLORS[mask_id]
             )
-    plt.show()
-
-
-def plot_3d_trajectories(reader, seq_id, obj_ids=None, count=10):
-    """ plots trajectory of projected object point clouds representations """
-    points = defaultdict(list)
-    for frame in range(count):
-        sample = reader.read_sample(seq_id, frame)
-        image, masks, depth = (
-            sample["image"],
-            sample["raw_masks"],
-            sample["depth"],
-        )
-        img_patches, depth_patches = utils.patch_masks(image, masks), utils.patch_masks(
-            depth, masks
-        )
-        clouds = [
-            utils.rgbd2ptcloud(
-                img_patch, depth_patch, reader.sequence_info[seq_id]["intrinsics"]
-            )
-            for img_patch, depth_patch in zip(img_patches, depth_patches)
-        ]
-        medians = np.array(
-            [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
-        )
-        for idx, median in zip(sample["mask_ids"], medians):
-            if (obj_ids is not None and idx in obj_ids) or obj_ids is None:
-                points[idx] += [median]
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    for obj_id in points.keys():
-        obj_points = np.array(points[obj_id])
-        ax.scatter(
-            obj_points[:, 0],
-            obj_points[:, 1],
-            obj_points[:, 2],
-            color=M_COLORS[obj_id],
-            label="id: {}".format(obj_id),
-        )
-    plt.legend(loc="upper left")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
     plt.show()
 
 
@@ -318,3 +274,18 @@ def plot_1d_pts(pts, paint=True, axis_name="X"):
     plt.scatter(np.arange(pts.shape[0]), pts, c=color)
     plt.xlabel(axis_name)
     plt.show()
+
+
+def plot_relative_egomotion_trajectory(egomotion):
+    """Plots relative egomotion trajectory
+    Args:
+        egomotion (ndarray): relative egomotion (nx4x4) array
+    """
+    T_acc = np.identity(4)
+    poses = np.array([0.0, 0.0, 0.0, 1.0])
+    p_0 = np.array([0.0, 0.0, 0.0, 1.0])
+    for pose in egomotion:
+        T_acc = T_acc.dot(pose)
+        p_acc = T_acc.dot(p_0)
+        poses = np.vstack((poses, p_acc))
+    plot_3d_pts(poses, paint=True)
