@@ -4,6 +4,6 @@
     "read_masks": true,
     "resize_shape": null,
     "depth_path": "gt_depth",
-    "egomotion_path": null,
+    "egomotion_path": "egomotion",
     "split_path": null
 }

@@ -12,21 +12,23 @@ from mots_tracker.trackers.tracker_helpers import (
 
 
 class MedianTracker(BaseTracker):
-    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3):
+    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3, use_egomotion=False):
         BaseTracker.__init__(
             self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
         )
         self.representation_size = 3  # x, y, z coordinates of a median
+        self.use_egomotion = use_egomotion
+        self.accumulated_egomotion = np.identity(4)
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
-        clouds = utils.masks2clouds(
-            sample["image"],
-            sample["depth"],
-            sample["masks"],
-            sample["intrinsics"],
-            depth_median_filter,
-        )
+        clouds = utils.compute_mask_clouds_no_color(sample, depth_median_filter)
+        if self.use_egomotion:
+            self.accumulated_egomotion = self.accumulated_egomotion.dot(
+                sample["egomotion"]
+            )
+            for cloud in clouds:
+                cloud.transform(self.accumulated_egomotion)
         medians = np.array(
             [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
         )
