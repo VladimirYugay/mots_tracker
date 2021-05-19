@@ -67,11 +67,7 @@ def profile_relative_egomotion_transform(reader, seq_id="045", frame_id=0):
     sample_left = reader.read_sample(seq_id, frame_id)
     sample_right = reader.read_sample(seq_id, frame_id + 1)
 
-    T_left = np.identity(4)
-    for i in range(frame_id + 1):
-        T = reader.read_sample(seq_id, i)["egomotion"]
-        T_left = T_left.dot(T)
-    T_right = T_left.dot(sample_right["egomotion"])
+    T_right = sample_right["egomotion"]
 
     scene_left = utils.rgbd2ptcloud(
         sample_left["image"], sample_left["depth"], sample_left["intrinsics"]
@@ -82,7 +78,6 @@ def profile_relative_egomotion_transform(reader, seq_id="045", frame_id=0):
     )
 
     vis_utils.plot_ptcloud([scene_left, scene_right], False)
-    scene_left.transform(T_left)
     scene_right.transform(T_right)
     vis_utils.plot_ptcloud([scene_left, scene_right], False)
 
