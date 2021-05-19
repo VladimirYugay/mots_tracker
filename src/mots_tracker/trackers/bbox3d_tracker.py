@@ -13,18 +13,23 @@ from mots_tracker.utils import compute_axis_aligned_bbs
 
 
 class BBox3dTracker(BaseTracker):
-    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3):
+    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3, use_egomotion=False):
         BaseTracker.__init__(
             self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
         )
         self.representation_size = 6  # x, y, z, d_x, d_y, d_z ~ w, l, d in o3d
+        self.use_egomotion = use_egomotion
+        self.accumulated_egomotion = np.identity(4)
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the objects to track """
-        image, masks, depth = sample["image"], sample["masks"], sample["depth"]
-        clouds = utils.masks2clouds(
-            image, depth, masks, sample["intrinsics"], depth_median_filter
-        )
+        clouds = utils.compute_mask_clouds_no_color(sample, depth_median_filter)
+        if self.use_egomotion:
+            self.accumulated_egomotion = self.accumulated_egomotion.dot(
+                sample["egomotion"]
+            )
+            for cloud in clouds:
+                cloud.transform(self.accumulated_egomotion)
         boxes = compute_axis_aligned_bbs(clouds)
         representations, info = [], {}  # for the sake of speedup
         for cloud_id, box in boxes.items():
@@ -34,7 +39,7 @@ class BBox3dTracker(BaseTracker):
                 )
                 info[cloud_id] = {
                     "box": sample["boxes"][cloud_id],
-                    "mask": masks[cloud_id],
+                    "mask": sample["masks"][cloud_id],
                 }
         return np.array(representations), info
 
