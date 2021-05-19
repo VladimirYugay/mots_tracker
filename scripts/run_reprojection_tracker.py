@@ -114,8 +114,6 @@ def main(
     axis_gt = fig.add_subplot(122, aspect="equal")
 
     for seq in seq_ids:
-        if seq != "045":
-            continue
         mot_tracker = MedianProjectionTracker(*tracker_config.values())
         out_file = open(os.path.join(output_path, "{}.txt".format(seq)), "w")
         logging.log(log_level, "Processing %s." % seq)
