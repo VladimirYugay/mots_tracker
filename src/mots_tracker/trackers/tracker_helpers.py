@@ -59,14 +59,13 @@ def iou_masks(detection_masks, tracker_masks):
     Returns:
         float: IoU matrix between all the masks
     """
-    n, m = detection_masks.shape[0], tracker_masks.shape[0]
-    iou_matrix = np.zeros((n, m))
-    for i, det_mask in enumerate(detection_masks):
-        for j, track_mask in enumerate(tracker_masks):
-            intersection = np.logical_and(det_mask, track_mask).sum()
-            union = np.logical_or(det_mask, track_mask).sum()
-            iou_matrix[i][j] = intersection / union
-    return iou_matrix
+    intersection = np.logical_and(
+        detection_masks[:, None, ...], tracker_masks[None, ...]
+    )
+    intersection = np.sum(intersection, axis=(2, 3))
+    union = np.logical_or(detection_masks[:, None, ...], tracker_masks[None, ...])
+    union = np.sum(union, axis=(2, 3))
+    return intersection / union
 
 
 def iou_batch(bb_test, bb_gt):
