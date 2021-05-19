@@ -22,7 +22,9 @@ class MedianTracker(BaseTracker):
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
-        clouds = utils.compute_mask_clouds_no_color(sample, depth_median_filter)
+        clouds = utils.compute_mask_clouds_no_color(
+            sample["depth"], sample["masks"], sample["intrinsics"], depth_median_filter
+        )
         if self.use_egomotion:
             self.accumulated_egomotion = self.accumulated_egomotion.dot(
                 sample["egomotion"]
