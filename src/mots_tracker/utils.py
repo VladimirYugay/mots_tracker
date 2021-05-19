@@ -56,33 +56,6 @@ def scale_intrinsics(intrinsics, old_shape, new_shape):
     return intrinsics
 
 
-def masks2clouds(image, depth, masks, intrinsics, filter_func=None):
-    """creates point clouds corresponding to masks
-    Args:
-        img (ndarray): rgb image
-        depth (ndarray): depth map
-        intrinsics (ndarray): intrinsics matrix
-        filter_func (function): filter to apply to the point cloud
-    Returns:
-        pt_clouds (list(PointCloud)): resulting point clouds
-    """
-    pt_clouds = []
-    n_rows, n_cols = depth.shape
-    scene = rgbd2ptcloud(image, depth, intrinsics)
-    scene_pts = np.asarray(scene.points)
-    scene_colors = np.asarray(scene.colors)
-    for mask in masks:
-        u, v = np.where(mask == 1)
-        ids = u * n_cols + v
-        pt_cloud = o3d.geometry.PointCloud()
-        pt_cloud.points = o3d.utility.Vector3dVector(scene_pts[ids])
-        pt_cloud.colors = o3d.utility.Vector3dVector(scene_colors[ids])
-        if filter_func is not None:
-            pt_cloud = filter_func(pt_cloud)
-        pt_clouds.append(pt_cloud)
-    return pt_clouds
-
-
 def decode_mask(height, width, mask_string):
     """ decodes coco segmentation mask string to numpy """
     return rletools.decode(
@@ -305,17 +278,15 @@ def compute_mask_clouds(sample, filter_func=None, color_weight=None):
     ]
 
 
-def compute_mask_clouds_no_color(sample, filter_func=None):
+def compute_mask_clouds_no_color(depth, masks, intrinsics, filter_func=None):
     """Compute pedestrian point clouds from a sample, Syntactic SUGAR
     Args:
         sample (dict): containing image, depth, masks, intrinsics
         filter_func (function): filter function to apply to the point clouds
-        color_weight (float): color weight to colorize point clouds
     Returns:
         list (o3d.geometry.PointCloud): point clouds
     """
-    intrinsics = sample["intrinsics"]
-    depth_patches = patch_masks(sample["depth"], sample["masks"])
+    depth_patches = patch_masks(depth, masks)
     return [
         d2ptcloud(depth_patch, intrinsics, filter_func) for depth_patch in depth_patches
     ]
