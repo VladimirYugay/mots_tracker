@@ -1,4 +1,5 @@
 """ module with util functions """
+import cv2
 import numpy as np
 import open3d as o3d
 from PIL import Image
@@ -290,3 +291,17 @@ def compute_mask_clouds_no_color(depth, masks, intrinsics, filter_func=None):
     return [
         d2ptcloud(depth_patch, intrinsics, filter_func) for depth_patch in depth_patches
     ]
+
+
+def fill_masks(masks, kernel_size=5):
+    """Fills holes in the binary segmentation masks
+    Args:
+        masks (ndarray): array of shape (n, h, w)
+    Returns:
+        filled_masks (ndarray): masks with filled holes
+    """
+    filled_masks = np.zeros_like(masks)
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+    for i, mask in enumerate(masks):
+        filled_masks[i, ...] = cv2.dilate(mask, kernel, iterations=1)
+    return filled_masks
