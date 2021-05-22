@@ -6,13 +6,6 @@ from pycocotools import mask as rletools
 from mots_tracker import utils
 from mots_tracker.trackers.numba_iou import convert_3dbox_to_8corner, iou3d
 
-# from bbox.bbox2d import BBox2D
-# from bbox.bbox3d import BBox3D
-# from bbox.box_modes import XYXY
-
-
-# from bbox.metrics import jaccard_index_2d, jaccard_index_3d
-
 
 def linear_assignment(cost_matrix):
     """ assigns trajectories based on cost matrix """
