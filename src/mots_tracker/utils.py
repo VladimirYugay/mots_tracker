@@ -67,6 +67,19 @@ def decode_mask(height, width, mask_string):
     )
 
 
+def encode_mask(mask):
+    """Encodes binary mask to rle string
+    Args:
+        mask (ndarray): binary mask
+    Returns:
+        encoding (dict): dict with 'size' and 'counts' string inside
+    """
+    mask = mask.astype(np.uint8)
+    encoding = rletools.encode(np.asfortranarray(mask))
+    encoding["counts"] = encoding["counts"]
+    return encoding
+
+
 def compute_box_center(box):
     """ compute center of the box represented with top left and bottom right corners"""
     return box[0] + (box[2] - box[0]) // 2, box[1] + (box[3] - box[1]) // 2

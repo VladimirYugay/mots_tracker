@@ -1,7 +1,9 @@
 """ module with tracker helper functions """
 import numpy as np
 import open3d as o3d
+from pycocotools import mask as rletools
 
+from mots_tracker import utils
 from mots_tracker.trackers.numba_iou import convert_3dbox_to_8corner, iou3d
 
 # from bbox.bbox2d import BBox2D
@@ -49,6 +51,21 @@ def iou3d_matrix(detections, trackers):
             iou3d_m, iou2d_m = iou3d(det_box, track_box)
             iou_matrix[i][j] = 0.8 * iou3d_m + 0.2 * iou2d_m
     return iou_matrix
+
+
+def iou_string_masks(detection_masks, tracker_masks):
+    """Computes iou between boolean masks
+    Args:
+        detection_masks (ndarray): boolean masks of shape n x h x w
+        tracker_masks (ndarray): boolean masks of shape m x h x w
+    Returns:
+        iou (ndarray): iou matrix of shape n x m
+    """
+    detection_masks = [utils.encode_mask(mask) for mask in detection_masks]
+    tracker_masks = [utils.encode_mask(mask) for mask in tracker_masks]
+    is_crowd = [False] * len(detection_masks) * len(tracker_masks)
+    iou = rletools.iou(detection_masks, tracker_masks, is_crowd)
+    return iou
 
 
 def iou_masks(detection_masks, tracker_masks):
