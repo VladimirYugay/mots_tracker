@@ -309,10 +309,9 @@ def compute_mask_clouds_no_color(depth, masks, intrinsics, filter_func=None):
         list (o3d.geometry.PointCloud): point clouds
     """
     depth_patches = patch_masks(depth, masks)
-    clouds = [
+    return [
         d2ptcloud(depth_patch, intrinsics, filter_func) for depth_patch in depth_patches
     ]
-    return [cloud for cloud in clouds if cloud.has_points()]
 
 
 def fill_masks(masks, kernel_size=5):
