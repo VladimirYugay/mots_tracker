@@ -93,6 +93,8 @@ def main(
         reader_config = json.load(reader_config_file)
     with open(str(tracker_cfg_path), "r") as tracker_config_file:
         tracker_config = json.load(tracker_config_file)
+    print("Tracker config:", tracker_config)
+    print("Reader config:", reader_config)
     reader = MOTSynthReader(os.path.join(data_path, phase), reader_config)
     seq_ids = sorted(reader.sequence_info.keys())
 
