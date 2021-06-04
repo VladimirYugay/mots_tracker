@@ -93,6 +93,8 @@ def main(
         reader_config = json.load(reader_config_file)
     with open(str(tracker_cfg_path), "r") as tracker_config_file:
         tracker_config = json.load(tracker_config_file)
+    print("Tracker config:", tracker_config)
+    print("Reader config:", reader_config)
     reader = readers.motsynth_reader.MOTSynthReader(
         os.path.join(data_path, phase), reader_config
     )
@@ -105,7 +107,6 @@ def main(
             (reader, seq_id, output_path, mot_tracker, reader_config)
             for seq_id in seq_ids
         ]
-        print(args)
         pool.map(multi_run_wrapper, args)
         return
 
