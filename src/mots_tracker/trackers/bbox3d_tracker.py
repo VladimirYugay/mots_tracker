@@ -1,4 +1,6 @@
 """ Class for tracking 3D bounding boxes """
+from functools import partial
+
 import numpy as np
 
 from mots_tracker import utils
@@ -13,18 +15,30 @@ from mots_tracker.utils import compute_axis_aligned_bbs
 
 
 class BBox3dTracker(BaseTracker):
-    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3, use_egomotion=False):
+    def __init__(
+        self,
+        max_age=1,
+        min_hits=3,
+        dist_threshold=0.3,
+        use_egomotion=False,
+        depth_deviation=0.3,
+    ):
         BaseTracker.__init__(
-            self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
+            self,
+            max_age=max_age,
+            min_hits=min_hits,
+            dist_threshold=dist_threshold,
         )
         self.representation_size = 6  # x, y, z, d_x, d_y, d_z ~ w, l, d in o3d
         self.use_egomotion = use_egomotion
         self.accumulated_egomotion = np.identity(4)
+        self.depth_deviation = depth_deviation
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the objects to track """
+        cloud_filter = partial(depth_median_filter, radius=self.depth_deviation)
         clouds = utils.compute_mask_clouds_no_color(
-            sample["depth"], sample["masks"], sample["intrinsics"], depth_median_filter
+            sample["depth"], sample["masks"], sample["intrinsics"], cloud_filter
         )
         if self.use_egomotion:
             self.accumulated_egomotion = self.accumulated_egomotion.dot(
