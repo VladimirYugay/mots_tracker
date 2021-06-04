@@ -1,4 +1,6 @@
 """ profiling gt bb generation from motsynth """
+from functools import partial
+
 import cv2
 import numpy as np
 
@@ -61,6 +63,39 @@ def read_depthmap(name):
     return y
 
 
+def profile_new_depth_boxes(sample):
+    """ Profile new box computation for the raw depth maps """
+    from mots_tracker.trackers import tracker_helpers
+
+    cloud_filter = partial(tracker_helpers.depth_median_filter, radius=1)
+    clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    boxes = utils.compute_axis_aligned_bbs(clouds)
+    vis_utils.plot_ptcloud(clouds + list(boxes.values()))
+    print(sample["masks"].shape, len(clouds))
+
+
+def profile_new_depth_rotated_boxes(reader, seq_id, frame_id):
+    """ Profile how new boxes will be rotated with the new depth """
+    np.set_printoptions(suppress=True, precision=3)
+    sample_left = reader.read_sample(seq_id, frame_id)
+    sample_right = reader.read_sample(seq_id, frame_id + 1)
+    cloud_filter = partial(tracker_helpers.depth_median_filter, radius=1)
+
+    T_right = sample_right["egomotion"]
+    clouds_left = utils.compute_mask_clouds(sample_left, cloud_filter)
+
+    clouds_right = utils.compute_mask_clouds(sample_right, cloud_filter)
+    boxes_right = list(utils.compute_axis_aligned_bbs(clouds_right).values())
+
+    vis_utils.plot_ptcloud(clouds_left + boxes_right, False)
+
+    clouds_right = utils.compute_mask_clouds(sample_right, cloud_filter)
+    for cloud in clouds_right:
+        cloud.transform(T_right)
+    boxes_right = list(utils.compute_axis_aligned_bbs(clouds_right).values())
+    vis_utils.plot_ptcloud(clouds_left + boxes_right, False)
+
+
 def main():
     """ visual profiling for generated motsynth bb """
     config = {
@@ -73,9 +108,11 @@ def main():
     }
     root_path = "/home/vy/university/thesis/datasets/MOTSynth"
     reader = MOTSynthReader(root_path, config)
-    seq_id, frame_id = "000", 0
+    seq_id, frame_id = "045", 347
+    # sample = reader.read_sample(seq_id, frame_id)
 
-    profile_scene_cloud(reader, seq_id, frame_id)
+    # profile_new_depth_boxes(sample)
+    profile_new_depth_rotated_boxes(reader, seq_id, frame_id)
 
 
 if __name__ == "__main__":
