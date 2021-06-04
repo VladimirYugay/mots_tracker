@@ -75,7 +75,7 @@ class MOTSynthReader(object):
         if self.config["depth_path"] is not None:
             depth_path = self.gt_path / seq_id / self.config["depth_path"]
             depth_path = depth_path / "{:0>4d}".format(frame_id)
-            if self.config["depth_path"] == "gt_depth":
+            if "gt" in self.config["depth_path"]:
                 depth = reader_helpers.load_motsynth_depth_image(
                     str(depth_path) + ".png", self.config["resize_shape"]
                 )
