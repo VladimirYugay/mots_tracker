@@ -1,5 +1,7 @@
 {
   "max_age": 15,
   "min_hits": 1,
-  "threshold": 0.001
+  "threshold": 0.001,
+  "use_egomotion": true,
+  "depth_deviation": 1
 }
