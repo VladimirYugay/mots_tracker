@@ -98,6 +98,14 @@ def compute_axis_aligned_bbs(clouds):
     for i, cloud in enumerate(clouds):
         try:
             box = cloud.get_axis_aligned_bounding_box()
+            if np.unique(np.asarray(cloud.points)[:, -1]).shape[0] < 3:  # flat depth
+                _, y, _ = box.get_extent()
+                min_bound = box.get_min_bound()
+                max_bound = box.get_max_bound()
+                # "depth" of a person is approximately 1/6 of height
+                min_bound[-1] -= y / 6
+                max_bound[-1] += y / 6
+                box = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
             boxes[i] = box
         except Exception:
             continue
@@ -301,9 +309,10 @@ def compute_mask_clouds_no_color(depth, masks, intrinsics, filter_func=None):
         list (o3d.geometry.PointCloud): point clouds
     """
     depth_patches = patch_masks(depth, masks)
-    return [
+    clouds = [
         d2ptcloud(depth_patch, intrinsics, filter_func) for depth_patch in depth_patches
     ]
+    return [cloud for cloud in clouds if cloud.has_points()]
 
 
 def fill_masks(masks, kernel_size=5):
