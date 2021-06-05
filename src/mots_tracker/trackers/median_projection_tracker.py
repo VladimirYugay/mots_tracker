@@ -1,4 +1,6 @@
 """ Class tracking medians """
+from functools import partial
+
 import numpy as np
 
 from mots_tracker import utils
@@ -6,49 +8,49 @@ from mots_tracker.kalman_filters.median_kalman_filter import MedianKalmanFilter
 from mots_tracker.trackers.base_tracker import BaseTracker
 from mots_tracker.trackers.tracker_helpers import (
     depth_median_filter,
-    iou_masks,
+    iou_string_masks,
     linear_assignment,
 )
 
 
 class MedianProjectionTracker(BaseTracker):
-    def __init__(self, max_age=1, min_hits=3, dist_threshold=0.3, dims=(1080, 1920)):
+    def __init__(
+        self,
+        max_age=1,
+        min_hits=3,
+        dist_threshold=0.3,
+        dims=(1080, 1920),
+        depth_deviation=0.3,
+    ):
         BaseTracker.__init__(
             self, max_age=max_age, min_hits=min_hits, dist_threshold=dist_threshold
         )
         self.representation_size = 3  # x, y, z coordinates of a median
         self.dims = dims
+        self.depth_deviation = depth_deviation
 
     def update(self, sample, intrinsics):
         """ updates the state of the tracker """
-        import time
-
-        start = time.time()
         detections, detection_projections, info = self.compute_detections(
             sample, intrinsics
         )
-        print(time.time() - start)
         self.frame_count += 1
+        if detections.shape[0] == 0:
+            return self.filter_trackers()
 
-        start = time.time()
         trackers_predictions, trackers_masks = self.predict()
-        print(time.time() - start)
-        start = time.time()
         matched, unmatched_detections, _ = self.associate_detections_to_trackers(
             (detections, detection_projections), (trackers_predictions, trackers_masks)
         )
-        print(time.time() - start)
         self.update_matched_trackers(matched, detections, info)
         self.init_unmatched_trackers(unmatched_detections, detections, info)
         return self.filter_trackers()
 
     def compute_detections(self, sample, intrinsics):
         """ computes representations for the point clouds as medians """
+        cloud_filter = partial(depth_median_filter, radius=self.depth_deviation)
         clouds = utils.compute_mask_clouds_no_color(
-            sample["depth"],
-            sample["masks"],
-            sample["intrinsics"],
-            depth_median_filter,
+            sample["depth"], sample["masks"], sample["intrinsics"], cloud_filter
         )
         medians = np.array(
             [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
@@ -61,12 +63,9 @@ class MedianProjectionTracker(BaseTracker):
                 for cloud in clouds
             ]
         )
+        projections = utils.fill_masks(projections)
         if medians.shape[0] == 0:
-            medians = (
-                np.empty((0, self.representation_size)),
-                np.empty((0, *sample["image"])),
-                {},
-            )
+            medians = np.empty((0, self.representation_size))
         info = {
             i: {
                 "mask": sample["masks"][i, :],
@@ -121,7 +120,7 @@ class MedianProjectionTracker(BaseTracker):
                 np.empty((0, self.representation_size)),
             )
 
-        iou_projections = iou_masks(detections_projections, trackers_masks)
+        iou_projections = iou_string_masks(detections_projections, trackers_masks)
 
         if min(iou_projections.shape) > 0:
             a = (iou_projections > self.dist_threshold).astype(np.int32)
