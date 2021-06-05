@@ -17,7 +17,7 @@ class BB3DKalmanFilter(BaseKalmanFilter):
             info (dict): dictionary with additional information
         """
         BaseKalmanFilter.__init__(self, bbox3d, info)
-        # define constant velocity model x, y, z, l, w ,h, v_x, v_y, v_z
+        # define constant velocity model x, y, z, d_x, d_y , d_z, v_x, v_y, v_z
         self.state_size = 9
         self.kf = KalmanFilter(dim_x=self.state_size, dim_z=self.observation_size)
         self.kf.F = np.eye(self.state_size)
