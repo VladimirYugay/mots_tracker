@@ -14,8 +14,7 @@ from pathlib import Path
 
 import click
 import numpy as np
-
-from mots_tracker.utils import decode_mask
+from pycocotools import mask as rletools
 
 _logger = logging.getLogger(__name__)
 
@@ -54,13 +53,10 @@ def generate_mot_file(ann_name, output_path):
             box = annotation["bbox"]
             height, width = annotation["segmentation"]["size"]
             mask_string = annotation["segmentation"]["counts"]
-            mask = decode_mask(height, width, mask_string)
-            if mask.sum() == 0:  # empty mask
+
+            if rletools.area(annotation["segmentation"]) < 800:
                 continue
-            rows, _ = np.where(mask != 0)
-            height = max(rows) - min(rows)
-            if height < 54:  # mask height threshold
-                continue
+
             print(
                 "%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1"
                 % (frame_id + 1, person_id, box[0], box[1], box[2], box[3]),
