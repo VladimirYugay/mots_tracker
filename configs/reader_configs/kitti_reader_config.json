@@ -1,6 +1,5 @@
 {
   "depth_path": "kitti",
-  "resize_shape": [416, 128],
   "read_boxes": true,
   "egomotion_path": null
 }

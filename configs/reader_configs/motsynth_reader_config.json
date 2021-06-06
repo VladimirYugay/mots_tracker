@@ -3,7 +3,7 @@
     "read_boxes": true,
     "read_masks": true,
     "resize_shape": null,
-    "depth_path": "gt_depth",
+    "depth_path": "gt_depth_new",
     "egomotion_path": "egomotion",
     "split_path": null
 }
