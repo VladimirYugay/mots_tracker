@@ -80,14 +80,15 @@ class MOTSynthReader(object):
                     str(depth_path) + ".png", self.config["resize_shape"]
                 )
             else:
-                depth = np.load(str(depth_path) + ".npy")
+                depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
+                depth = np.clip(depth, 0, 100)
         if self.config["egomotion_path"] is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
         intrinsics = INTRINSICS
         if self.config["resize_shape"] is not None:
             width, height = image.size
             intrinsics = utils.scale_intrinsics(
-                intrinsics, (height, width), self.config["resize_shape"]
+                intrinsics, (width, height), self.config["resize_shape"]
             )
             if boxes is not None:
                 boxes = utils.resize_boxes(
