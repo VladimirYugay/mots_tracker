@@ -1,0 +1,21 @@
+output_path: "./data/output/test"
+cores: 3
+
+reader:
+  type: NewMOTSynthReader
+  args:
+    data_path: "/home/vy/university/thesis/datasets/MOTSynth"
+    gt_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
+    read_boxes: true
+    read_masks: true
+    resize_shape: null
+    depth_path: "gt_depth_new"
+    egomotion_path: "egomotion"
+    split_path: "debug_split/test.txt"
+
+tracker:
+  type: BBox2dTracker
+  args:
+    max_age: 1
+    min_hits: 3
+    dist_threshold: 0.3

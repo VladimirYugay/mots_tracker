@@ -59,6 +59,18 @@ def print_kitti_format(frame_id, obj_id, obj_type, box, file):
     )
 
 
+def get_instance(module, name: str, cfg: dict):
+    """Instantiates a class from configuration file
+    Args:
+        module: python module where a class is implemented
+        name: name of part of the config to instantiate
+        cfg: config with parameters for the object instantiation
+    Returns:
+        an instance of a class defined in module and the config
+    """
+    return getattr(module, cfg[name]["type"])(**cfg[name]["args"])
+
+
 def multi_run_wrapper(args):
     """ Unpacks argument for running on multiple cores """
     return track_objects(*args)
