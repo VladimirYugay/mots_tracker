@@ -19,10 +19,9 @@ class BBox2dTracker(BaseTracker):
         representations, info = np.zeros((len(boxes), self.representation_size)), {}
         for i, box in enumerate(boxes):
             representations[i, :] = box
-            info[i] = {"box": box}
-            if (
-                "obj_types" in sample
-            ):  # dirty fix for KITTI dataset, obj type needed for HOTA
+            info[i] = {"box": box, "raw_mask": sample["raw_masks"][i]}
+            # dirty fix for KITTI dataset, obj type needed for HOTA
+            if "obj_types" in sample:
                 info[i]["obj_type"] = sample["obj_types"][i]
         return representations, info
 
@@ -39,8 +38,7 @@ class BBox2dTracker(BaseTracker):
             ):
                 ret.append(
                     (
-                        trk.get_state()[0],
-                        trk.info.get("obj_type", None),
+                        trk.info["raw_mask"],
                         trk.info["box"],
                         trk.id + 1,
                     )
