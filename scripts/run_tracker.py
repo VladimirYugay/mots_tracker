@@ -5,11 +5,10 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import click
-import yaml
 
 import mots_tracker
 from mots_tracker import readers, trackers
-from mots_tracker.io_utils import get_instance, multi_run_wrapper
+from mots_tracker.io_utils import get_instance, load_yaml, multi_run_wrapper
 
 _logger = logging.getLogger(__name__)
 
@@ -37,8 +36,7 @@ def main(config_path, log_level):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    with open(config_path, "r") as config_file:
-        config = yaml.safe_load(config_file)
+    config = load_yaml(config_path)
 
     Path(config["output_path"]).mkdir(parents=True, exist_ok=True)
     reader = get_instance(readers, "reader", config)
