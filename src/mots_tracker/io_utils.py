@@ -1,5 +1,5 @@
 """ Utils for input and output of tracker data """
-import os
+from pathlib import Path
 
 from mots_tracker import utils
 
@@ -26,6 +26,22 @@ def print_mot_format(frame_id, obj_id, box, file):
     )
 
 
+def print_mots_format(frame_id: int, obj_id: int, height: int, width: int, mask, file):
+    """Prints results in MOTS format to the file
+    Args:
+        frame_id: frame id, 1 indexed for MOT
+        obj_id: id of the object
+        height: height of the image
+        width: width of the image
+        mask: rle string
+        file: opened file to write to  (do not close)
+    """
+    print(
+        "{} {} 2 {} {} {}".format(frame_id, obj_id, height, width, mask),
+        file=file,
+    )
+
+
 def print_kitti_format(frame_id, obj_id, obj_type, box, file):
     """Prints results in mot format to the file
     Args:
@@ -48,28 +64,41 @@ def multi_run_wrapper(args):
     return track_objects(*args)
 
 
-def track_objects(reader, seq_id, output_path, mot_tracker, reader_config):
+def track_objects(
+    reader, seq_id: str, output_path: str, mot_tracker, reader_config: dict
+):
     """Function to run trackers on multiple cores
     Args:
         reader (Reader): one of the readers implemented in readers module
-        seq_id (str): id of the sequence
-        output_path (Path): path to save output
+        seq_id: id of the sequence
+        output_path: path to save output
         mot_tracker (Tracker): one of the trackers implemented in trackers module
-        reader_config (dict): configuration of the reader
+        reader_config: configuration of the reader
     """
-    out_file = open(os.path.join(output_path, "{}.txt".format(seq_id)), "w")
+    # we will write both masks and boxes
+    output_path = Path(output_path)
+    (output_path / "MOT").mkdir(parents=True, exist_ok=True)
+    (output_path / "MOTS").mkdir(parents=True, exist_ok=True)
+    mot_out_file = open(str(output_path / "MOT" / "{}.txt".format(seq_id)), "w")
+    mots_out_file = open(str(output_path / "MOTS" / "{}.txt".format(seq_id)), "w")
+    width = reader.sequence_info[seq_id]["img_width"]
+    height = reader.sequence_info[seq_id]["img_height"]
     print("Processing %s." % seq_id)
     for frame in range(reader.sequence_info[seq_id]["length"]):
         print("Processing seq: {}, frame: {}".format(seq_id, frame))
         sample = reader.read_sample(seq_id, frame)
         frame += 1
         trackers = mot_tracker.update(sample, sample["intrinsics"])
-        for (pred_box, mask, box, idx) in trackers:
+        for (
+            raw_mask,
+            box,
+            idx,
+        ) in trackers:  # we don't use predicted box for our experiments
             if "resize_shape" in reader_config and reader_config["resize_shape"]:
-                width = reader.sequence_info[seq_id]["img_width"]
-                height = reader.sequence_info[seq_id]["img_height"]
                 box = utils.resize_boxes(
                     box[None, :], reader_config["resize_shape"], (width, height)
                 )[0]
-            print_mot_format(frame, idx, box, out_file)
-    out_file.close()
+            print_mot_format(frame, idx, box, mot_out_file)
+            print_mots_format(frame, idx, height, width, raw_mask, mots_out_file)
+    mot_out_file.close()
+    mots_out_file.close()
