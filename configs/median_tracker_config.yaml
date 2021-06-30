@@ -1,4 +1,4 @@
-output_path: "./data/output/test"
+output_path: "./data/output/median_egomotion"
 cores: 3
 
 reader:
@@ -19,5 +19,5 @@ tracker:
     max_age: 15
     min_hits: 1
     dist_threshold: 1
-    use_egomotion: false
+    use_egomotion: true
     depth_deviation: 1
