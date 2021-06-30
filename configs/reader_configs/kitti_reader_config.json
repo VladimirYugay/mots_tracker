@@ -1,5 +1,0 @@
-{
-  "depth_path": "kitti",
-  "read_boxes": true,
-  "egomotion_path": null
-}

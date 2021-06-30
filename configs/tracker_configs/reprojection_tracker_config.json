@@ -1,7 +1,0 @@
-{
-  "max_age": 15,
-  "min_hits": 1,
-  "threshold": 0.001,
-  "dims": [1080, 1920],
-  "depth_deviation": 1
-}

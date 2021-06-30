@@ -27,7 +27,6 @@ class MedianTracker(BaseTracker):
         )
         self.representation_size = 3  # x, y, z coordinates of a median
         self.use_egomotion = use_egomotion
-        self.accumulated_egomotion = np.identity(4)
         self.depth_deviation = depth_deviation
 
     def compute_detections(self, sample, intrinsics):
@@ -37,11 +36,8 @@ class MedianTracker(BaseTracker):
             sample["depth"], sample["masks"], sample["intrinsics"], cloud_filter
         )
         if self.use_egomotion:
-            self.accumulated_egomotion = self.accumulated_egomotion.dot(
-                sample["egomotion"]
-            )
             for cloud in clouds:
-                cloud.transform(self.accumulated_egomotion)
+                cloud.transform(sample["egomotion"])
         medians = np.array(
             [np.median(np.asarray(cld.points), axis=0) for cld in clouds]
         )
@@ -68,9 +64,7 @@ class MedianTracker(BaseTracker):
             if (trk.time_since_update < 1) and (
                 trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits
             ):
-                ret.append(
-                    (trk.kf.x[:3][:, 0], trk.info["mask"], trk.info["box"], trk.id + 1)
-                )
+                ret.append((trk.info["raw_mask"], trk.info["box"], trk.id + 1))
             i -= 1
             if trk.time_since_update > self.max_age:
                 self.trackers.pop(i)
