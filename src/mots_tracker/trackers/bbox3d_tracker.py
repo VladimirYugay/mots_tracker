@@ -56,6 +56,7 @@ class BBox3dTracker(BaseTracker):
                 info[cloud_id] = {
                     "box": sample["boxes"][cloud_id],
                     "mask": sample["masks"][cloud_id],
+                    "raw_mask": sample["raw_masks"][cloud_id],
                 }
         return np.array(representations), info
 
@@ -72,8 +73,7 @@ class BBox3dTracker(BaseTracker):
             ):
                 ret.append(
                     (
-                        trk.kf.x[: trk.observation_size],
-                        trk.info["mask"],
+                        trk.info["raw_mask"],
                         trk.info["box"],
                         trk.id + 1,
                     )
