@@ -5,9 +5,9 @@ reader:
   type: NewMOTSynthReader
   args:
     data_path: "/home/vy/university/thesis/datasets/MOTSynth"
-    gt_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
-    read_boxes: true
-    read_masks: true
+    ann_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
+    boxes_path: "gt/gt.txt"
+    masks_path: "gt/gt_masks.txt"
     resize_shape: null
     depth_path: "gt_depth_new"
     egomotion_path: "egomotion"
