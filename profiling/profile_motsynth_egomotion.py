@@ -1,8 +1,8 @@
 """ profiling gt bb generation from motsynth """
 import numpy as np
 
-from mots_tracker import utils, vis_utils
-from mots_tracker.readers import MOTSynthReader
+from mots_tracker import readers, utils, vis_utils
+from mots_tracker.io_utils import get_instance, load_yaml
 
 
 def profile_absolute_egomotion_trajectory(reader, seq_id, start=0, stop=10):
@@ -84,17 +84,10 @@ def profile_relative_egomotion_transform(reader, seq_id="045", frame_id=0):
 
 def main():
     """ visual profiling for generated motsynth bb """
-    config = {
-        "depth_path": "gt_depth",
-        "egomotion_path": "egomotion",
-        "read_masks": True,
-        "read_boxes": True,
-        "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations/all",
-        "split_path": None,
-    }
-    root_path = "/home/vy/university/thesis/datasets/MOTSynth"
-    reader = MOTSynthReader(root_path, config)
-    seq_id, frame_id = "045", 342
+    config_path = "./configs/median_tracker_config.yaml"
+    config = load_yaml(config_path)
+    reader = get_instance(readers, "reader", config)
+    seq_id, frame_id = "045", 347
 
     # profile_absolute_egomotion_trajectory(reader, seq_id, 0, 50)
     # profile_relative_egomotion_trajectory(reader, seq_id, 0, 50)

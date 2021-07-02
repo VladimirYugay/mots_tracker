@@ -6,11 +6,15 @@ from pathlib import Path
 import click
 import matplotlib.pyplot as plt
 import numpy as np
-import yaml
 
 import mots_tracker
 from mots_tracker import readers, trackers, utils, vis_utils
-from mots_tracker.io_utils import get_instance, print_mot_format, print_mots_format
+from mots_tracker.io_utils import (
+    get_instance,
+    load_yaml,
+    print_mot_format,
+    print_mots_format,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -38,8 +42,7 @@ def main(config_path, log_level):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    with open(config_path, "r") as config_file:
-        config = yaml.safe_load(config_file)
+    config = load_yaml(config_path)
 
     reader_config = config["reader"]["args"]
     output_path = Path(config["output_path"])

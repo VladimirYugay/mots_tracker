@@ -101,9 +101,7 @@ class MedianProjectionTracker(BaseTracker):
             if (trk.time_since_update < 1) and (
                 trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits
             ):
-                ret.append(
-                    (trk.kf.x[:3][:, 0], trk.info["mask"], trk.info["box"], trk.id + 1)
-                )
+                ret.append((trk.info["raw_mask"], trk.info["box"], trk.id + 1))
             i -= 1
             if trk.time_since_update > self.max_age:
                 self.trackers.pop(i)

@@ -1,6 +1,8 @@
 """ Utils for input and output of tracker data """
 from pathlib import Path
 
+import yaml
+
 from mots_tracker import utils
 
 
@@ -69,6 +71,18 @@ def get_instance(module, name: str, cfg: dict):
         an instance of a class defined in module and the config
     """
     return getattr(module, cfg[name]["type"])(**cfg[name]["args"])
+
+
+def load_yaml(path: str) -> dict:
+    """Reads yaml file
+    Args:
+        path: path the yaml file
+    Returns:
+        obj: loaded yaml object
+    """
+    with open(path, "r") as yaml_file:
+        obj = yaml.safe_load(yaml_file)
+    return obj
 
 
 def multi_run_wrapper(args):

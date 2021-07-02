@@ -4,8 +4,8 @@ from functools import partial
 import cv2
 import numpy as np
 
-from mots_tracker import utils, vis_utils
-from mots_tracker.readers import MOTSynthReader
+from mots_tracker import readers, utils, vis_utils
+from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.trackers import tracker_helpers
 
 
@@ -98,21 +98,20 @@ def profile_new_depth_rotated_boxes(reader, seq_id, frame_id):
 
 def main():
     """ visual profiling for generated motsynth bb """
-    config = {
-        "depth_path": "gt_depth",
-        "egomotion_path": "egomotion",
-        "read_masks": True,
-        "read_boxes": True,
-        "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations/all",
-        "split_path": None,
-    }
-    root_path = "/home/vy/university/thesis/datasets/MOTSynth"
-    reader = MOTSynthReader(root_path, config)
-    seq_id, frame_id = "045", 347
-    # sample = reader.read_sample(seq_id, frame_id)
+    config_path = "./configs/median_tracker_config.yaml"
+    config = load_yaml(config_path)
+    config["reader"]["args"]["boxes_path"] = "mask_rcnn/boxes.txt"
+    config["reader"]["args"]["masks_path"] = "mask_rcnn/masks.txt"
+    reader = get_instance(readers, "reader", config)
+    seq_id, frame_id = "000", 0
+    sample = reader.read_sample(seq_id, frame_id)
 
+    vis_utils.plot_image_boxes(sample["image"], sample["boxes"])
+    vis_utils.plot_image_masks(sample["image"], sample["masks"])
+    # vis_utils.plot_image_masks(sample['image'], sample['masks'])
     # profile_new_depth_boxes(sample)
-    profile_new_depth_rotated_boxes(reader, seq_id, frame_id)
+    # profile_scene_cloud(reader, seq_id, frame_id)
+    # profile_new_depth_rotated_boxes(reader, seq_id, frame_id)
 
 
 if __name__ == "__main__":

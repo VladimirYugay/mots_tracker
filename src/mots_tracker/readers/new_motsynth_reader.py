@@ -34,12 +34,12 @@ class NewMOTSynthReader(object):
     def __init__(
         self,
         data_path: str,
-        gt_path: str = "/home/vy/university/thesis/datasets/MOTSynth_annotations",
-        read_boxes: bool = False,
-        read_masks: bool = False,
+        ann_path: str = "/home/vy/university/thesis/datasets/MOTSynth_annotations",
+        boxes_path: str = "gt/gt.txt",
+        masks_path: str = "gt/gt_masks.txt",
         resize_shape: tuple = None,
-        depth_path: str = None,
-        egomotion_path: str = None,
+        depth_path: str = "gt_depth_new",
+        egomotion_path: str = "egomotion",
         split_path: str = None,
     ):
         """Reader constructor
@@ -48,9 +48,9 @@ class NewMOTSynthReader(object):
             config (dict): config with reader setup options
         """
         self.data_path = Path(data_path)
-        self.gt_path = Path(gt_path)
-        self.read_boxes = read_boxes
-        self.read_masks = read_masks
+        self.ann_path = Path(ann_path)
+        self.boxes_path = boxes_path
+        self.masks_path = masks_path
         self.resize_shape = resize_shape
         self.depth_path = depth_path
         self.egomotion_path = egomotion_path
@@ -71,23 +71,13 @@ class NewMOTSynthReader(object):
             self._init_cache(seq_id)
         img_path = self.cache["img_names"][frame_id]
         boxes, box_ids, masks, mask_ids, raw_masks, image, depth, egomotion = [None] * 8
-        if self.read_boxes:
-            boxes, box_ids = self._read_bb(frame_id + 1)
-        if self.read_masks:
-            masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
+        boxes, box_ids, boxes_confidence = self._read_bb(frame_id + 1)
+        masks, mask_ids, raw_masks, masks_confidence = self._read_seg_masks(
+            seq_id, frame_id + 1
+        )
         image = utils.load_image(img_path)
-        if self.depth_path is not None:
-            depth_path = self.gt_path / seq_id / self.depth_path
-            depth_path = depth_path / "{:0>4d}".format(frame_id)
-            if "gt" in self.depth_path:
-                depth = reader_helpers.load_motsynth_depth_image(
-                    str(depth_path) + ".png", self.resize_shape
-                )
-            else:
-                depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
-                depth = np.clip(depth, 0, 100)
-        if self.egomotion_path is not None:
-            egomotion = self._read_egomotion(seq_id, frame_id)
+        depth = self._read_depth(seq_id, frame_id)
+        egomotion = self.cache["egomotion"][frame_id]
         intrinsics = INTRINSICS
         if self.resize_shape is not None:
             width, height = image.size
@@ -103,28 +93,35 @@ class NewMOTSynthReader(object):
 
         return {
             "boxes": boxes,
-            "depth": depth,
             "box_ids": box_ids,
+            "boxes_confidence": boxes_confidence,
+            "depth": depth,
             "image": np.array(image),
             "masks": masks.astype(np.uint8) if masks is not None else masks,
-            "raw_masks": raw_masks,
             "mask_ids": mask_ids,
+            "masks_confidence": masks_confidence,
+            "raw_masks": raw_masks,
             "intrinsics": intrinsics,
             "egomotion": egomotion,
         }
 
-    def _read_seg_masks(self, seq_id, frame_id):
+    def _read_seg_masks(self, seq_id: str, frame_id: int) -> tuple:
         """read all bounding boxes for a given frame
         Args:
-            seq_id (str): sequence id
-            frame_id (int): frame id
+            seq_id: sequence id
+            frame_id: frame id
         Returns:
-            masks (ndarray): binary object masks
+            masks, masks_ids, raw_masks, masks_confidence: numpy arrays
         """
-        # data format: frame_id, obj_id, class_id h, w, mask string
+        # data format: frame_id, obj_id, class_id h, w,
+        # mask string (or confidence score instead of obj_id))
         masks_data, mask_strings = self.cache["masks"]
         masks_data = masks_data.copy()
-        valid_mask = masks_data[:, 0] == frame_id
+        mask_ids = masks_data[:, 1].astype(np.int64)
+        confidence = np.ones(masks_data.shape[0])
+        if "gt" not in self.masks_path:
+            confidence = masks_data[:, 1].copy()
+        valid_mask = (masks_data[:, 0] == frame_id) & (confidence > 0.3)
         relevant_ids = np.where(valid_mask)[0]
         masks_data = masks_data[valid_mask]
         height = self.sequence_info[seq_id]["img_height"]
@@ -135,32 +132,37 @@ class NewMOTSynthReader(object):
             masks[i, ...] = utils.decode_mask(height, width, mask_strings[rel_id])
             raw_masks[i] = mask_strings[rel_id]
         # see notation here: https://www.vision.rwth-aachen.de/page/mots
-        return masks, masks_data[:, 1].astype(np.uint64), raw_masks
+        return masks, mask_ids, raw_masks, confidence
 
-    def _read_bb(self, frame_id):
+    def _read_bb(self, frame_id: int) -> tuple:
         """read all bounding boxes for a given frame MOTS format
         Args:
-            seq_id (str): sequence id
             frame_id (int): frame id
         Returns:
-            boxes (ndarray), box_ids (ndarray): boxes with their ids
+            boxes, box_ids, confidence: boxes with their ids and confidence
         """
         boxes = self.cache["boxes"].copy()
-        frame_data = boxes[boxes[:, 0] == frame_id]
-        box_ids = frame_data[:, 1].astype(np.uint64)
+        confidence = np.ones(boxes.shape[0])
+        # dependent on gt or other model inference, `obj_id` plays a role of
+        # an object id and of a confidence score correspondingly
+        if "gt" not in self.boxes_path:
+            confidence = boxes[:, 1].copy()
+        frame_data = boxes[(boxes[:, 0] == frame_id) & (confidence > 0.3)]
         frame_boxes = frame_data[:, [2, 3, 4, 5]]
         frame_boxes[:, 2] = frame_boxes[:, 0] + frame_boxes[:, 2]
         frame_boxes[:, 3] = frame_boxes[:, 1] + frame_boxes[:, 3]
-        return frame_boxes, box_ids
+
+        return frame_boxes, frame_data[:, 1].astype(np.int64), boxes[:, 1]
 
     def _init_sequence_info(self):
-        seq_ids = set(pth.parts[-1] for pth in self.gt_path.glob("*"))
+        """ Initializes information about the sequences """
+        seq_ids = set(pth.parts[-1] for pth in self.ann_path.glob("*"))
         if self.split_path is not None:
-            split_path = self.gt_path / ".." / self.split_path
+            split_path = self.ann_path / ".." / self.split_path
             with open(str(split_path), "r") as file:
                 seq_ids = set([line.strip() for line in file.readlines()])
         sequence_info = {}
-        for info_file_path in (self.gt_path).glob("*"):
+        for info_file_path in (self.ann_path).glob("*"):
             parser = ConfigParser()
             parser.read(str(info_file_path / "seqinfo.ini"), encoding=None)
             seq_name = parser.get("Sequence", "name")
@@ -182,25 +184,33 @@ class NewMOTSynthReader(object):
         img_names = reader_helpers.read_file_names(imgs_path)
         img_names.sort()
         self.cache = {seq_id: seq_id, "img_names": img_names}
-        if self.read_boxes:
-            bb_path = self.gt_path / seq_id / "gt" / "gt.txt"
-            self.cache["boxes"] = read_mot_bb_file(str(bb_path))
 
-        if self.read_masks:
-            mask_path = self.gt_path / seq_id / "gt" / "gt_masks.txt"
-            self.cache["masks"] = read_mot_seg_file(mask_path)
+        bb_path = self.ann_path / seq_id / self.boxes_path
+        self.cache["boxes"] = read_mot_bb_file(str(bb_path))
+
+        mask_path = self.ann_path / seq_id / self.masks_path
+        self.cache["masks"] = read_mot_seg_file(mask_path)
 
         if self.egomotion_path == "egomotion":  # gt path is egomotion
-            egomotion_path = self.gt_path / seq_id / "gt" / "egomotion.txt"
+            egomotion_path = self.ann_path / seq_id / "gt" / "egomotion.txt"
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
 
-    def _read_egomotion(self, seq_id, frame_id):
+    def _read_depth(self, seq_id: str, frame_id: int) -> np.ndarray:
         """read rotation and translation of the camera from origin to the current frame
         Args:
-            seq_id (str): sequence id
-            frame_id (int): frame id
+            seq_id: sequence id
+            frame_id: frame id
         Returns:
-            egomotion (ndarray): array representing rotation and translation
+            depth: depth map
         """
-        return self.cache["egomotion"][frame_id]
+        depth_path = self.ann_path / seq_id / self.depth_path
+        depth_path = depth_path / "{:0>4d}".format(frame_id)
+        if "gt" in self.depth_path:
+            depth = reader_helpers.load_motsynth_depth_image(
+                str(depth_path) + ".png", self.resize_shape
+            )
+        else:
+            depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
+            depth = np.clip(depth, 0, 100)
+        return depth

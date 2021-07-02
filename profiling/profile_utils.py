@@ -1,5 +1,6 @@
 """ profiling gt bb generation from motsynth """
 import pickle
+from functools import partial
 from pathlib import Path
 
 import cv2
@@ -7,8 +8,8 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
-from mots_tracker import utils, vis_utils
-from mots_tracker.readers import MOTSynthReader
+from mots_tracker import readers, utils, vis_utils
+from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.readers.motsynth_reader import INTRINSICS
 from mots_tracker.trackers import numba_iou, tracker_helpers
 from mots_tracker.trackers.tracker_helpers import iou_masks
@@ -116,6 +117,7 @@ def profile_gta():
     depth = read_depthmap(str(path / "00638.png"), cam_near_clip, cam_far_clip).astype(
         np.float32
     )
+    vis_utils.plot_image(depth, image_type="depth")
     image = np.array(utils.load_image(str(path / "00638.jpg")))
     cloud = utils.rgbd2ptcloud(image, depth, INTRINSICS)
     vis_utils.plot_ptcloud(cloud)
@@ -125,17 +127,19 @@ def profile_back_proj(sample):
     """ Profile back projection """
     # vis_utils.plot_image_masks(
     #   sample['image'], sample['masks'], sample['mask_ids'] % len(vis_utils.M_COLORS))
-    clouds = utils.compute_mask_clouds(sample)
+    from functools import partial
+
+    cloud_filter = partial(tracker_helpers.depth_median_filter, radius=1)
+    clouds = utils.compute_mask_clouds(sample, cloud_filter)
     projections = [
         utils.cloud2img(cloud, (1080, 1920), sample["intrinsics"]) for cloud in clouds
     ]
-    projections = np.array(projections)
-    print(projections.shape)
-    projections = projections.sum(axis=0)
-    print(projections.shape)
-    vis_utils.plot_image(projections)
     vis_utils.plot_image_masks(
-        sample["image"], sample["masks"], sample["mask_ids"] % len(vis_utils.M_COLORS)
+        sample["image"], projections, sample["mask_ids"] % len(vis_utils.M_COLORS)
+    )
+    projections = utils.fill_masks(np.array(projections))
+    vis_utils.plot_image_masks(
+        sample["image"], projections, sample["mask_ids"] % len(vis_utils.M_COLORS)
     )
 
 
@@ -175,23 +179,64 @@ def profile_back_proj_transformation(reader, seq_id="045", frame_id=347):
     print(iou_masks(masks_left, projections))
     vis_utils.plot_image_masks(sample_right["image"], masks_union, [0, 1, 2, 3] * 2)
 
+    projections = utils.fill_masks(projections)
+    masks_union = np.concatenate((masks_left, projections))
+    print(iou_masks(masks_left, projections))
+    vis_utils.plot_image_masks(sample_right["image"], masks_union, [0, 1, 2, 3] * 2)
+
+
+def profile_filling(sample):
+    """ Profile back projection """
+    # vis_utils.plot_image_masks(
+    #   sample['image'], sample['masks'], sample['mask_ids'] % len(vis_utils.M_COLORS))
+    clouds = utils.compute_mask_clouds(sample)
+    projections = [
+        utils.cloud2img(cloud, (1080, 1920), sample["intrinsics"]) for cloud in clouds
+    ]
+    projections = np.array(projections)
+    vis_utils.plot_image_masks(sample["image"], projections)
+    projections = utils.fill_masks(projections)
+    vis_utils.plot_image_masks(sample["image"], projections)
+
+
+def profile_gt_bb(sample):
+    cloud_filter = partial(tracker_helpers.depth_median_filter, radius=1)
+
+    vis_utils.plot_image_masks(
+        sample["image"], sample["masks"], np.arange(sample["masks"].shape[0])
+    )
+
+    clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    boxes = utils.compute_axis_aligned_bbs(clouds)
+    print([box.volume() for box in boxes.values()])
+    vis_utils.plot_ptcloud(clouds + list(boxes.values()))
+
 
 def main():
     """ visual profiling for generated motsynth bb """
     config = {
-        "depth_path": "gt_depth",
+        "depth_path": "gt_depth_new",
         "egomotion_path": "egomotion",
         "read_masks": True,
         "read_boxes": True,
         "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations/all",
         "split_path": None,
     }
-    root_path = "/home/vy/university/thesis/datasets/MOTSynth"
-    reader = MOTSynthReader(root_path, config)
-    seq_id, frame_id = "045", 347
+
+    config_path = "./configs/median_tracker_config.yaml"
+    config = load_yaml(config_path)
+    reader = get_instance(readers, "reader", config)
+
+    # 323 too close
+    seq_id, frame_id = "045", 348
     sample = reader.read_sample(seq_id, frame_id)
-    profile_back_proj(sample)
-    profile_back_proj_transformation(reader, seq_id, frame_id)
+    print(sample.keys())
+    # profile_gt_bb(sample)
+    # profile_back_proj(sample)
+    # profile_gta()
+    # profile_back_proj_transformation(reader, seq_id, frame_id)
+    # profile_filling(sample)
+    # profile_aligned_bb()
 
 
 if __name__ == "__main__":
