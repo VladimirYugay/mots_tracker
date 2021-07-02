@@ -153,7 +153,7 @@ def read_mot_bb_file(path):
     bb_file = open(path, "r")
     bb_lines = bb_file.readlines()
     bb_data = np.zeros(
-        (len(bb_lines), 6), dtype=np.uint64
+        (len(bb_lines), 6), dtype=np.float64
     )  # all coordinates are integers
     for i, line in enumerate(bb_lines):
         frame_id, ped_id, x, y, w, h = line.split(",")[:6]
@@ -172,11 +172,11 @@ def read_mot_seg_file(path):
     """
     seg_file = open(path, "r")
     seg_lines = seg_file.readlines()
-    seg_data = np.zeros((len(seg_lines), 4), dtype=np.uint64)
+    seg_data = np.zeros((len(seg_lines), 4), dtype=np.float64)
     mask_strings = [None] * len(seg_lines)
     for i, line in enumerate(seg_lines):
         frame_id, ped_id, _, height, width, mask_string = line.split(" ")
-        seg_data[i, ...] = np.array([frame_id, ped_id, height, width], dtype=np.uint64)
+        seg_data[i, ...] = np.array([frame_id, ped_id, height, width], dtype=np.float64)
         mask_strings[i] = mask_string.strip()
     seg_file.close()
     return (seg_data, mask_strings)

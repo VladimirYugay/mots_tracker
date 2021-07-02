@@ -57,8 +57,17 @@ def scale_intrinsics(intrinsics, old_shape, new_shape):
     return intrinsics
 
 
-def decode_mask(height, width, mask_string):
-    """ decodes coco segmentation mask string to numpy """
+def decode_mask(height: int, width: int, mask_string) -> dict:
+    """Decodes mask string to mask  matrix
+    Args:
+        height: height of the mask
+        width: width of the mask
+        mask_string: rle encoding in bytes or string format
+    Returns:
+        mask dictionary in coco format
+    """
+    if isinstance(mask_string, bytes):
+        mask_string = mask_string.decode(encoding="UTF-8")
     return rletools.decode(
         {
             "size": [int(height), int(width)],
