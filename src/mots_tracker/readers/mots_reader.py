@@ -7,19 +7,6 @@ import numpy as np
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
 
-SEQUENCE_IDS = ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11")
-
-DEFAULT_CONFIG = {
-    "depth_path": None,
-    "read_boxes": True,
-    "read_masks": True,
-    "resize_shape": None,
-    "vis_threshold": 0.25,
-    "seq_ids": ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"),
-    "bbs_file_name": "gt_bb.txt",
-    "masks_file_name": "gt.txt",
-    "egomotion_path": None,
-}
 DEFAULT_INTRINSICS = np.array(
     [[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]
 )
@@ -38,19 +25,38 @@ INTRINSICS = {
 class MOTSReader(object):
     """ reader class """
 
-    def __init__(self, root_path, config):
+    def __init__(
+        self,
+        root_path,
+        depth_path: str = None,
+        resize_shape: tuple = None,
+        read_masks: bool = True,
+        read_boxes: bool = True,
+        seq_ids: tuple = ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"),
+        bbs_file_name: str = "gt_bb.txt",
+        masks_file_name: str = "gt.txt",
+        egomotion_path: str = None,
+        mode: str = "train",
+    ):
         """constructor
         Args:
             root_path (str): directory containing both images and ground truth
             config (dict): configuration of the reader
         """
-        self.config = DEFAULT_CONFIG.copy()
-        self.config.update(config)
         self.root_path = Path(root_path)
-        self.box_data_cache = {seq_id: None for seq_id in self.config["seq_ids"]}
-        self.seg_data_cache = {seq_id: None for seq_id in self.config["seq_ids"]}
-        self.egomotion_cache = {seq_id: None for seq_id in self.config["seq_ids"]}
-        self.sequence_info = self._init_sequence_info(self.config["seq_ids"])
+        self.depth_path = depth_path
+        self.resize_shape = resize_shape
+        self.read_masks = read_masks
+        self.read_boxes = read_boxes
+        self.seq_ids = seq_ids
+        self.bbs_file_name = bbs_file_name
+        self.masks_file_name = masks_file_name
+        self.egomotion_path = egomotion_path
+        self.mode = mode
+        self.box_data_cache = {seq_id: None for seq_id in self.seq_ids}
+        self.seg_data_cache = {seq_id: None for seq_id in self.seq_ids}
+        self.egomotion_cache = {seq_id: None for seq_id in self.seq_ids}
+        self.sequence_info = self._init_sequence_info()
 
     def read_sample(self, seq_id, frame_id):
         """reads image and all annotations
@@ -63,34 +69,34 @@ class MOTSReader(object):
         assert seq_id in self.sequence_info.keys()
         assert 0 <= frame_id < len(self.sequence_info[seq_id]["img_names"])
         img_name = self.sequence_info[seq_id]["img_names"][frame_id]
-        img_path = reader_helpers.id2imgpath(seq_id, img_name, self.root_path)
+        img_path = reader_helpers.id2imgpath(
+            seq_id, img_name, self.root_path / self.mode
+        )
         # frame_id + 1 since frames are 1 indexed
         boxes, box_ids, masks, mask_ids, raw_masks, image, depth, egomotion = [None] * 8
-        if self.config["read_boxes"]:
+        if self.read_boxes:
             boxes, box_ids = self._read_bb(seq_id, frame_id + 1)
-        if self.config["read_masks"]:
+        if self.read_masks:
             masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
         image = utils.load_image(img_path)
-        if self.config["depth_path"] is not None:
+        if self.depth_path is not None:
             depth_path = reader_helpers.id2depthpath(
-                seq_id, img_name, self.root_path, self.config["depth_path"]
+                seq_id, img_name, self.root_path / self.mode, self.depth_path
             )
             depth = np.load(depth_path)
-        if self.config["egomotion_path"] is not None:
+        if self.egomotion_path is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
         intrinsics = self.sequence_info[seq_id]["intrinsics"].copy()
-        if self.config["resize_shape"] is not None:
+        if self.resize_shape is not None:
             intrinsics = utils.scale_intrinsics(
-                intrinsics, image.size, self.config["resize_shape"]
+                intrinsics, image.size, self.resize_shape
             )
             if boxes is not None:
-                boxes = utils.resize_boxes(
-                    boxes, image.size, self.config["resize_shape"]
-                )
+                boxes = utils.resize_boxes(boxes, image.size, self.resize_shape)
             if image is not None:
-                image = utils.resize_img(image, self.config["resize_shape"])
+                image = utils.resize_img(image, self.resize_shape)
             if masks is not None:
-                masks = utils.resize_masks(masks, self.config["resize_shape"])
+                masks = utils.resize_masks(masks, self.resize_shape)
         return {
             "boxes": boxes,
             "depth": depth,
@@ -113,7 +119,7 @@ class MOTSReader(object):
         """
         # cache ground truth txt file
         if self.seg_data_cache[seq_id] is None:
-            seg_path = self.root_path / seq_id / "gt" / self.config["masks_file_name"]
+            seg_path = self.root_path / self.mode / seq_id / "gt" / self.masks_file_name
             self.seg_data_cache[seq_id] = reader_helpers.read_mot_seg_file(
                 str(seg_path)
             )
@@ -125,7 +131,7 @@ class MOTSReader(object):
         relevant_ids = np.where(valid_mask)[0]
         masks_data = masks_data[valid_mask]
         mask_ids = mask_ids[valid_mask]
-        height, width = masks_data[0, 2], masks_data[0, 3]
+        height, width = int(masks_data[0, 2]), int(masks_data[0, 3])
         raw_masks = [None] * relevant_ids.shape[0]
         masks = np.zeros((relevant_ids.shape[0], height, width), dtype=np.uint8)
         for i, rel_id in enumerate(relevant_ids):
@@ -143,7 +149,7 @@ class MOTSReader(object):
             egomotion (ndarray): array representing rotation and translation
         """
         if self.egomotion_cache[seq_id] is None:
-            path = self.root_path / seq_id / self.config["egomotion_path"]
+            path = self.root_path / self.mode / seq_id / self.egomotion_path
             rot = np.load(str(path / "rotations.npy"))
             trans = np.load(str(path / "translations.npy"))
             transformations = np.zeros((rot.shape[0], 4, 4))
@@ -163,7 +169,7 @@ class MOTSReader(object):
             boxes (ndarray), box_ids (ndarray): boxes with their ids
         """
         if self.box_data_cache[seq_id] is None:
-            box_path = self.root_path / seq_id / "gt" / self.config["bbs_file_name"]
+            box_path = self.root_path / self.mode / seq_id / "gt" / self.bbs_file_name
             self.box_data_cache[seq_id] = reader_helpers.read_mot_bb_file(str(box_path))
         boxes = self.box_data_cache[seq_id].copy()
         frame_data = boxes[boxes[:, 0] == frame_id]
@@ -173,12 +179,12 @@ class MOTSReader(object):
         frame_boxes[:, 3] = frame_boxes[:, 1] + frame_boxes[:, 3]
         return frame_boxes, box_ids
 
-    def _init_sequence_info(self, sequence_ids):
-        sequence_info = {idx: {} for idx in sequence_ids}
-        for idx in sequence_ids:
+    def _init_sequence_info(self):
+        sequence_info = {idx: {} for idx in self.seq_ids}
+        for idx in self.seq_ids:
             parser = ConfigParser()
-            config_path = self.root_path / idx / "seqinfo.ini"
-            img_path = self.root_path / idx / "img1"
+            config_path = self.root_path / self.mode / idx / "seqinfo.ini"
+            img_path = self.root_path / self.mode / idx / "img1"
             parser.read(config_path)
             sequence_info[idx] = {
                 "length": int(parser["Sequence"]["seqLength"]),
