@@ -27,30 +27,28 @@ class MOTSReader(object):
 
     def __init__(
         self,
-        root_path,
+        data_path,
+        ann_path: str = "/home/vy/university/thesis/datasets/MOTS_annotations",
         depth_path: str = None,
         resize_shape: tuple = None,
-        read_masks: bool = True,
-        read_boxes: bool = True,
+        masks_path: str = "gt/gt.txt",
+        boxes_path: str = "gt/gt_bb.txt",
         seq_ids: tuple = ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"),
-        bbs_file_name: str = "gt_bb.txt",
-        masks_file_name: str = "gt.txt",
         egomotion_path: str = None,
         mode: str = "train",
     ):
         """constructor
         Args:
-            root_path (str): directory containing both images and ground truth
+            data_path (str): directory containing both images and ground truth
             config (dict): configuration of the reader
         """
-        self.root_path = Path(root_path)
+        self.data_path = Path(data_path)
         self.depth_path = depth_path
+        self.ann_path = ann_path
         self.resize_shape = resize_shape
-        self.read_masks = read_masks
-        self.read_boxes = read_boxes
+        self.masks_path = masks_path
+        self.boxes_path = boxes_path
         self.seq_ids = seq_ids
-        self.bbs_file_name = bbs_file_name
-        self.masks_file_name = masks_file_name
         self.egomotion_path = egomotion_path
         self.mode = mode
         self.box_data_cache = {seq_id: None for seq_id in self.seq_ids}
@@ -70,20 +68,22 @@ class MOTSReader(object):
         assert 0 <= frame_id < len(self.sequence_info[seq_id]["img_names"])
         img_name = self.sequence_info[seq_id]["img_names"][frame_id]
         img_path = reader_helpers.id2imgpath(
-            seq_id, img_name, self.root_path / self.mode
+            seq_id, img_name, self.data_path / self.mode
         )
         # frame_id + 1 since frames are 1 indexed
         boxes, box_ids, masks, mask_ids, raw_masks, image, depth, egomotion = [None] * 8
-        if self.read_boxes:
+        if self.boxes_path:
             boxes, box_ids = self._read_bb(seq_id, frame_id + 1)
-        if self.read_masks:
+        if self.masks_path:
             masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
         image = utils.load_image(img_path)
         if self.depth_path is not None:
-            depth_path = reader_helpers.id2depthpath(
-                seq_id, img_name, self.root_path / self.mode, self.depth_path
+            depth_name = "{:0>6d}".format(frame_id + 1) + ".npz"
+            depth_path = (
+                Path(self.ann_path) / self.mode / seq_id / self.depth_path / depth_name
             )
-            depth = np.load(depth_path)
+            depth = np.load(depth_path)["arr_0"]
+            depth = utils.interpolate_depth(depth, image.size)
         if self.egomotion_path is not None:
             egomotion = self._read_egomotion(seq_id, frame_id)
         intrinsics = self.sequence_info[seq_id]["intrinsics"].copy()
@@ -119,7 +119,7 @@ class MOTSReader(object):
         """
         # cache ground truth txt file
         if self.seg_data_cache[seq_id] is None:
-            seg_path = self.root_path / self.mode / seq_id / "gt" / self.masks_file_name
+            seg_path = self.data_path / self.mode / seq_id / self.masks_path
             self.seg_data_cache[seq_id] = reader_helpers.read_mot_seg_file(
                 str(seg_path)
             )
@@ -149,7 +149,7 @@ class MOTSReader(object):
             egomotion (ndarray): array representing rotation and translation
         """
         if self.egomotion_cache[seq_id] is None:
-            path = self.root_path / self.mode / seq_id / self.egomotion_path
+            path = self.data_path / self.mode / seq_id / self.egomotion_path
             rot = np.load(str(path / "rotations.npy"))
             trans = np.load(str(path / "translations.npy"))
             transformations = np.zeros((rot.shape[0], 4, 4))
@@ -169,7 +169,7 @@ class MOTSReader(object):
             boxes (ndarray), box_ids (ndarray): boxes with their ids
         """
         if self.box_data_cache[seq_id] is None:
-            box_path = self.root_path / self.mode / seq_id / "gt" / self.bbs_file_name
+            box_path = self.data_path / self.mode / seq_id / self.boxes_path
             self.box_data_cache[seq_id] = reader_helpers.read_mot_bb_file(str(box_path))
         boxes = self.box_data_cache[seq_id].copy()
         frame_data = boxes[boxes[:, 0] == frame_id]
@@ -183,8 +183,8 @@ class MOTSReader(object):
         sequence_info = {idx: {} for idx in self.seq_ids}
         for idx in self.seq_ids:
             parser = ConfigParser()
-            config_path = self.root_path / self.mode / idx / "seqinfo.ini"
-            img_path = self.root_path / self.mode / idx / "img1"
+            config_path = self.data_path / self.mode / idx / "seqinfo.ini"
+            img_path = self.data_path / self.mode / idx / "img1"
             parser.read(config_path)
             sequence_info[idx] = {
                 "length": int(parser["Sequence"]["seqLength"]),

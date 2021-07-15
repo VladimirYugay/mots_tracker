@@ -1,8 +1,10 @@
 """ profiling MOTS dataset """
-from mots_tracker import utils, vis_utils
-from mots_tracker.readers import MOTSReader
+from functools import partial
+
+from mots_tracker import readers, utils, vis_utils
+from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.trackers.tracker_helpers import depth_median_filter
-from mots_tracker.utils import compute_mask_clouds, rgbd2ptcloud
+from mots_tracker.utils import rgbd2ptcloud
 
 
 def profile_intrinsics(reader, seq_id, frame_id):
@@ -35,15 +37,12 @@ def profile_depth(reader, seq_id, frame_id):
     vis_utils.plot_image(sample["depth"], image_type="Depth")
 
 
-def profile_ptclouds(reader, seq_id, frame_ids):
-    """ Shows pedestrians point clouds """
-    frames_pcds = []
-    for frame_id in frame_ids:
-        sample = reader.read_sample(seq_id, frame_id)
-        clouds = compute_mask_clouds(sample, depth_median_filter, color_weight=0.5)
-        frames_pcds.append(clouds)
-    vis_utils.play_clouds_movement(frames_pcds)
-    # vis_utils.plot_ptcloud(clouds)
+def profile_clouds(reader, seq_id, frame_id):
+    """ See the clouds """
+    sample = reader.read_sample(seq_id, frame_id)
+    cloud_filter = partial(depth_median_filter, radius=0.1)
+    clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    vis_utils.plot_ptcloud(clouds, False)
 
 
 def profile_scene(reader, seq_id, frame_id):
@@ -56,14 +55,17 @@ def profile_scene(reader, seq_id, frame_id):
 
 
 def main():
-
-    root_path = "/home/vy/university/thesis/datasets/MOTS"
-    reader = MOTSReader(root_path)
-    seq_id, frame_id = "MOTS20-11", 0
+    config_path = "./configs/2dbb_tracker_config.yaml"
+    config = load_yaml(config_path)
+    reader = get_instance(readers, "reader", config)
+    seq_id, frame_id = "MOTS20-02", 0
 
     # vis_utils.plot_image_masks(sample['image'], sample['masks'])
     # profile_masks(reader, seq_id, frame_id)
-    profile_boxes(reader, seq_id, frame_id)
+    # profile_boxes(reader, seq_id, frame_id)
+    # profile_depth(reader, seq_id, frame_id)
+    # profile_scene(reader, seq_id, frame_id)
+    profile_clouds(reader, seq_id, frame_id)
 
 
 if __name__ == "__main__":

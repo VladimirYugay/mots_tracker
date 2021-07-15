@@ -335,3 +335,14 @@ def fill_masks(masks, kernel_size=5):
     for i, mask in enumerate(masks):
         filled_masks[i, ...] = cv2.dilate(mask, kernel, iterations=1)
     return filled_masks
+
+
+def interpolate_depth(depth: np.ndarray, size: tuple) -> np.ndarray:
+    """Interpolates 2D depth image
+    Args:
+        depth: depth map to interpolate
+        size: size to which interpolate the image
+    Returns:
+        upscaled image
+    """
+    return cv2.resize(depth, dsize=size, interpolation=cv2.INTER_LANCZOS4)
