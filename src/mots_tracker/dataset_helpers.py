@@ -197,7 +197,9 @@ def generate_mask2bb(reader: mots_tracker.readers.MOTSReader) -> None:
         print("Processing sequence {}".format(seq_id))
         width = reader.sequence_info[seq_id]["img_width"]
         height = reader.sequence_info[seq_id]["img_height"]
-        file = open(str(reader.ann_path / seq_id / "gt" / "gt_bb.txt"), "w")
+        file = open(
+            str(reader.data_path / reader.mode / seq_id / "gt" / "gt_bb.txt"), "w"
+        )
         for frame_id in range(reader.sequence_info[seq_id]["length"]):
             sample = reader.read_sample(seq_id, frame_id)
             for mask_id, raw_mask in zip(sample["mask_ids"], sample["raw_masks"]):
