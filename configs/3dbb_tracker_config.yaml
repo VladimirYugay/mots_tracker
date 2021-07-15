@@ -1,17 +1,29 @@
 output_path: "./data/output/3dbb_egomotion"
 cores: 3
 
+#reader:
+#  type: NewMOTSynthReader
+#  args:
+#    data_path: "/home/vy/university/thesis/datasets/MOTSynth"
+#    ann_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
+#    boxes_path: "gt/gt.txt"
+#    masks_path: "gt/gt_masks.txt"
+#    resize_shape: null
+#    depth_path: "gt_depth_new"
+#    egomotion_path: "egomotion"
+#    split_path: "debug_split/test.txt"
+
 reader:
-  type: NewMOTSynthReader
+  type: MOTSReader
   args:
-    data_path: "/home/vy/university/thesis/datasets/MOTSynth"
-    ann_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
-    boxes_path: "gt/gt.txt"
-    masks_path: "gt/gt_masks.txt"
+    data_path: "/home/vy/university/thesis/datasets/MOTS"
+    ann_path: "/home/vy/university/thesis/datasets/MOTS_annotations"
+    boxes_path: "gt/gt_bb.txt"
+    masks_path: "gt/gt.txt"
     resize_shape: null
-    depth_path: "gt_depth_new"
-    egomotion_path: "egomotion"
-    split_path: "debug_split/test.txt"
+    depth_path: "mono+stereo_640x192"
+    egomotion_path: null
+    mode: "train"
 
 tracker:
   type: BBox3dTracker
