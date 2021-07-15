@@ -193,7 +193,7 @@ def generate_mask2bb(reader: mots_tracker.readers.MOTSReader) -> None:
     Args:
         reader (MOTSReader): reader for handling MOTS dataset
     """
-    for seq_id in reader.config["seq_ids"]:
+    for seq_id in reader.seq_ids:
         print("Processing sequence {}".format(seq_id))
         width = reader.sequence_info[seq_id]["img_width"]
         height = reader.sequence_info[seq_id]["img_height"]
