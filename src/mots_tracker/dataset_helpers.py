@@ -4,6 +4,7 @@ from pycocotools import mask as rletools
 from scipy.optimize import linear_sum_assignment
 from termcolor import colored
 
+import mots_tracker.readers
 from mots_tracker.utils import decode_mask
 
 
@@ -111,7 +112,8 @@ def match_seg2bb(
     verbose=False,
 ):
     """Matches every segmentation mask to a bounding box
-    The main idea is to keep only those boxes which have a corresponding segmentation mask
+    The main idea is to keep only those boxes which have
+    a corresponding segmentation mask
     Moreover, change box id to maks id for the sake of visualization
     """
     mask_data = np.loadtxt(str(mask_path), dtype=np.str)
@@ -186,7 +188,7 @@ def match_seg2bb(
     mask_file.close()
 
 
-def generate_mask2bb(reader):
+def generate_mask2bb(reader: mots_tracker.readers.MOTSReader) -> None:
     """Generates bounding boxes from masks and store corresponding .txt files
     Args:
         reader (MOTSReader): reader for handling MOTS dataset
@@ -195,7 +197,7 @@ def generate_mask2bb(reader):
         print("Processing sequence {}".format(seq_id))
         width = reader.sequence_info[seq_id]["img_width"]
         height = reader.sequence_info[seq_id]["img_height"]
-        file = open(str(reader.root_path / seq_id / "gt" / "gt_bb.txt"), "w")
+        file = open(str(reader.ann_path / seq_id / "gt" / "gt_bb.txt"), "w")
         for frame_id in range(reader.sequence_info[seq_id]["length"]):
             sample = reader.read_sample(seq_id, frame_id)
             for mask_id, raw_mask in zip(sample["mask_ids"], sample["raw_masks"]):
