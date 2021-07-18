@@ -76,7 +76,7 @@ class NewMOTSynthReader(object):
             seq_id, frame_id + 1
         )
         image = utils.load_image(img_path)
-        depth = self._read_depth(seq_id, frame_id)
+        depth = self._read_depth(seq_id, frame_id, image.size)
         egomotion = self.cache["egomotion"][frame_id]
         intrinsics = INTRINSICS
         if self.resize_shape is not None:
@@ -196,7 +196,7 @@ class NewMOTSynthReader(object):
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
 
-    def _read_depth(self, seq_id: str, frame_id: int) -> np.ndarray:
+    def _read_depth(self, seq_id: str, frame_id: int, size: tuple = None) -> np.ndarray:
         """read rotation and translation of the camera from origin to the current frame
         Args:
             seq_id: sequence id
@@ -213,4 +213,5 @@ class NewMOTSynthReader(object):
         else:
             depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
             depth = np.clip(depth, 0, 100)
+            depth = utils.interpolate_depth(depth, size)
         return depth
