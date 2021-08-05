@@ -1,5 +1,6 @@
 """ module for visualization utils """
 import time
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +8,7 @@ import open3d as o3d
 from matplotlib import colors as mcolors
 from matplotlib import patches
 from open3d.open3d.geometry import PointCloud
+from PIL import Image
 
 from mots_tracker import utils
 
@@ -289,3 +291,31 @@ def plot_relative_egomotion_trajectory(egomotion):
         p_acc = T_acc.dot(p_0)
         poses = np.vstack((poses, p_acc))
     plot_3d_pts(poses, paint=True)
+
+
+def depth2gif(depth_path: str, output_path: str) -> None:
+    """Converts numpy array depth maps to gif
+    Args:
+        depth_path: path to the folder with the depth maps
+        output_path: path to the gif
+    """
+    depth_path = Path(depth_path)
+    gif_name = str(depth_path.parts[-1]) + ".gif"
+    color_map = plt.cm.get_cmap("plasma").reversed()
+    imgs = []
+    for depth in sorted(depth_path.glob("*")):
+        depth = np.load(str(depth))["arr_0"] * 12
+        depth = (depth - depth.min()) / (depth.max() - depth.min())
+        depth = color_map(depth)
+        img = Image.fromarray((depth * 255).astype(np.uint8))
+        imgs.append(img)
+    img, *imgs = imgs
+    img.save(
+        fp=gif_name,
+        format="GIF",
+        append_images=imgs,
+        save_all=True,
+        duration=500,
+        loop=0,
+    )
+    print("Saved gif to:", gif_name)
