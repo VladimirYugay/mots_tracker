@@ -19,6 +19,8 @@ dependencies:
   - pycocotools==2.0.2
   - python>=3.6
   - scipy
+  - pandas
+  - scp
   - pip:
      - -e .
      - bbox==0.9.2
