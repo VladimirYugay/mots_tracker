@@ -82,13 +82,11 @@ def main(config_path, log_level):
             tracks = tracker.update(sample, sample["intrinsics"])
 
             for (raw_mask, box, idx) in tracks:
-                if (
-                    "resize_shape" in reader_config
-                    and reader_config["resize_shape"] is not None
-                ):
+                resize_shape = reader_config.get("resize_shape", None)
+                if resize_shape is not None:
                     box = utils.resize_boxes(
-                        box[None, :], reader_config["resize_shape"], (width, height)
-                    )
+                        box[None, :], resize_shape, (width, height)
+                    )[0, :]
                 print_mot_format(frame, idx, box, mot_out_file)
                 print_mots_format(frame, idx, height, width, raw_mask, mots_out_file)
                 vis_utils.plot_box_patch(axis_track, box, idx)
