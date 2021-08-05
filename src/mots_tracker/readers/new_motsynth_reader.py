@@ -76,7 +76,7 @@ class NewMOTSynthReader(object):
             seq_id, frame_id + 1
         )
         image = utils.load_image(img_path)
-        depth = self._read_depth(seq_id, frame_id, image.size)
+        depth = self._read_depth(seq_id, frame_id, self.resize_shape)
         egomotion = self.cache["egomotion"][frame_id]
         intrinsics = INTRINSICS
         if self.resize_shape is not None:
@@ -213,5 +213,6 @@ class NewMOTSynthReader(object):
         else:
             depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
             depth = np.clip(depth, 0, 100)
-            depth = utils.interpolate_depth(depth, size)
+            if size is not None:
+                depth = utils.interpolate_depth(depth, tuple(size))
         return depth
