@@ -204,6 +204,8 @@ class NewMOTSynthReader(object):
         Returns:
             depth: depth map
         """
+        if self.depth_path is None:
+            return None
         depth_path = self.ann_path / seq_id / self.depth_path
         depth_path = depth_path / "{:0>4d}".format(frame_id)
         if "gt" in self.depth_path:
