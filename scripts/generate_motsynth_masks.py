@@ -8,17 +8,17 @@ from pathlib import Path
 import click
 
 from mots_tracker import utils
-from mots_tracker.readers import MOTSynthReader
+from mots_tracker.readers import NewMOTSynthReader
 
 _logger = logging.getLogger(__name__)
 
 
 def multi_run_wrapper(args):
     """ Unpacks argument for running on multiple cores """
-    return track_objects(*args)
+    return make_masks(*args)
 
 
-def track_objects(reader, seq_id, output_path):
+def make_masks(reader, seq_id, output_path):
     """Function to run trackers on multiple cores
     Args:
         reader (Reader): one of the readers implemented in readers module
@@ -74,7 +74,7 @@ def main(input_path, output_path, reader_cfg_path, cores):
     output_path.mkdir(parents=True, exist_ok=True)
     with open(str(reader_cfg_path), "r") as reader_config_file:
         reader_config = json.load(reader_config_file)
-    reader = MOTSynthReader(input_path, reader_config)
+    reader = NewMOTSynthReader(input_path, reader_config)
     seq_ids = sorted(reader.sequence_info.keys())
     pool = Pool(cores)
     args = [(reader, seq_id, output_path) for seq_id in seq_ids]
