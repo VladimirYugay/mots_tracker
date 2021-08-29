@@ -5,8 +5,10 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import click
+import cv2
+import numpy as np
 
-from mots_tracker import readers, utils
+from mots_tracker import readers
 from mots_tracker.io_utils import get_instance, load_yaml
 
 _logger = logging.getLogger(__name__)
@@ -30,9 +32,14 @@ def make_masks(reader, seq_id, output_path):
             logging.INFO, "Processing sequence: {}, frame: {}".format(seq_id, frame_id)
         )
         sample = reader.read_sample(seq_id, frame_id)
-        seg_img = sample["masks"].sum(axis=0)
+        masks = sample["masks"]
+        instance_seg_mask = []
+        for color, mask in enumerate(masks):
+            mask[mask == 1] = color + 1
+            instance_seg_mask.append(mask)
+        instance_seg_mask = np.array(instance_seg_mask).sum(axis=0)
         file_name = "{0:04d}".format(frame_id) + ".png"
-        utils.save_img(seg_img, str((output_path / seq_id / file_name)))
+        cv2.imwrite(str((output_path / seq_id / file_name)), instance_seg_mask)
 
 
 @click.command()
@@ -49,7 +56,7 @@ def make_masks(reader, seq_id, output_path):
     "--cp",
     "--config_path",
     "config_path",
-    default="./configs/median_tracker_config.yaml",
+    default="./configs/reproj_tracker_config.yaml",
     type=click.Path(exists=True),
     help="path to the config file",
 )
