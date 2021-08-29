@@ -175,7 +175,13 @@ def read_mot_seg_file(path):
     seg_data = np.zeros((len(seg_lines), 4), dtype=np.float64)
     mask_strings = [None] * len(seg_lines)
     for i, line in enumerate(seg_lines):
-        frame_id, ped_id, _, height, width, mask_string = line.split(" ")
+        split_line = line.split(" ")
+        # here, ped_id can be either pedestrian id in case of gt data
+        # or a confidence score of a predictor
+        if len(split_line) > 6:  # trackrcnn public detections
+            frame_id, _, _, _, _, ped_id, _, height, width, mask_string = split_line
+        else:
+            frame_id, ped_id, _, height, width, mask_string = split_line
         seg_data[i, ...] = np.array([frame_id, ped_id, height, width], dtype=np.float64)
         mask_strings[i] = mask_string.strip()
     seg_file.close()

@@ -36,6 +36,7 @@ class MOTSReader(object):
         seq_ids: tuple = ("MOTS20-02", "MOTS20-05", "MOTS20-09", "MOTS20-11"),
         egomotion_path: str = None,
         mode: str = "train",
+        conf_thres: float = 0.2,
     ):
         """constructor
         Args:
@@ -55,6 +56,7 @@ class MOTSReader(object):
         self.seg_data_cache = {seq_id: None for seq_id in self.seq_ids}
         self.egomotion_cache = {seq_id: None for seq_id in self.seq_ids}
         self.sequence_info = self._init_sequence_info()
+        self.conf_thres = conf_thres
 
     def read_sample(self, seq_id, frame_id):
         """reads image and all annotations
@@ -71,11 +73,23 @@ class MOTSReader(object):
             seq_id, img_name, self.data_path / self.mode
         )
         # frame_id + 1 since frames are 1 indexed
-        boxes, box_ids, masks, mask_ids, raw_masks, image, depth, egomotion = [None] * 8
+        (
+            boxes,
+            box_ids,
+            box_scores,
+            masks,
+            mask_ids,
+            raw_masks,
+            image,
+            depth,
+            egomotion,
+        ) = [None] * 9
         if self.boxes_path:
-            boxes, box_ids = self._read_bb(seq_id, frame_id + 1)
+            boxes, box_ids, box_scores = self._read_bb(seq_id, frame_id + 1)
         if self.masks_path:
-            masks, mask_ids, raw_masks = self._read_seg_masks(seq_id, frame_id + 1)
+            masks, mask_ids, raw_masks, mask_scores = self._read_seg_masks(
+                seq_id, frame_id + 1
+            )
         image = utils.load_image(img_path)
         if self.depth_path is not None:
             depth_name = "{:0>6d}".format(frame_id + 1) + ".npz"
@@ -107,6 +121,8 @@ class MOTSReader(object):
             "mask_ids": mask_ids,
             "intrinsics": intrinsics,
             "egomotion": egomotion,
+            "mask_scores": mask_scores,
+            "box_scores": box_scores,
         }
 
     def _read_seg_masks(self, seq_id, frame_id):
@@ -126,8 +142,18 @@ class MOTSReader(object):
         # data format: frame_id, obj_id, class_di h, w, mask string
         masks_data, mask_strings = self.seg_data_cache[seq_id]
         masks_data = masks_data.copy()
-        mask_ids = masks_data[:, 1].astype(np.uint64) % 1000
-        valid_mask = (masks_data[:, 0] == frame_id) & (mask_ids > 0)
+        mask_scores, mask_ids = np.zeros(masks_data.shape[0]), np.ones(
+            masks_data.shape[0]
+        )
+        if "gt" in self.masks_path:
+            mask_ids = masks_data[:, 1].astype(np.uint64) % 1000
+        else:
+            mask_scores = masks_data[:, 1]
+        valid_mask = (
+            (masks_data[:, 0] == frame_id)
+            & (mask_ids > 0)
+            & (mask_scores > self.conf_thres)
+        )
         relevant_ids = np.where(valid_mask)[0]
         masks_data = masks_data[valid_mask]
         mask_ids = mask_ids[valid_mask]
@@ -138,7 +164,7 @@ class MOTSReader(object):
             masks[i, ...] = utils.decode_mask(height, width, mask_strings[rel_id])
             raw_masks[i] = mask_strings[rel_id]
         # see notation here: https://www.vision.rwth-aachen.de/page/mots
-        return masks, mask_ids, raw_masks
+        return masks, mask_ids, raw_masks, mask_scores
 
     def _read_egomotion(self, seq_id, frame_id):
         """read rotation and translation of the camera from (frame_id - 1) to (frame_id)
@@ -173,11 +199,16 @@ class MOTSReader(object):
             self.box_data_cache[seq_id] = reader_helpers.read_mot_bb_file(str(box_path))
         boxes = self.box_data_cache[seq_id].copy()
         frame_data = boxes[boxes[:, 0] == frame_id]
-        box_ids = frame_data[:, 1].astype(np.uint16) % 1000
+        box_ids, box_scores = np.ones(frame_data.shape[0]), np.ones(frame_data.shape[0])
+        if "gt" in self.boxes_path:
+            box_ids = frame_data[:, 1].astype(np.uint16) % 1000
+        else:
+            box_scores = frame_data[:, 1]
+        valid_mask = (box_ids > 0) & (box_scores > self.conf_thres)
         frame_boxes = frame_data[:, [2, 3, 4, 5]]
         frame_boxes[:, 2] = frame_boxes[:, 0] + frame_boxes[:, 2]
         frame_boxes[:, 3] = frame_boxes[:, 1] + frame_boxes[:, 3]
-        return frame_boxes, box_ids
+        return frame_boxes[valid_mask], box_ids[valid_mask], box_scores
 
     def _init_sequence_info(self):
         sequence_info = {idx: {} for idx in self.seq_ids}
