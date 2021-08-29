@@ -319,3 +319,14 @@ def depth2gif(depth_path: str, output_path: str) -> None:
         loop=0,
     )
     print("Saved gif to:", gif_name)
+
+
+def colorize_clouds(clouds: list) -> list:
+    """Colorizes point clouds
+    Args:
+        clouds: point clouds to colorize
+    Returns:
+        colorized_clouds: painted point clouds
+    """
+    for i, cloud in enumerate(clouds):
+        cloud.paint_uniform_color(COLORS[i])
