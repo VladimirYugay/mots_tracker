@@ -39,7 +39,7 @@ def make_coco(reader, seq_id, output_path):
                     "iscrowd": 0,
                     "segmentation": {"size": [1080, 1920], "counts": raw_mask},
                     "bbox": [c for c in bbox],
-                    "bbox_mode": 1,
+                    "bbox_mode": 0,
                     "category_id": 0,
                 }
             )

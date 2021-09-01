@@ -213,7 +213,7 @@ class NewMOTSynthReader(object):
                 str(depth_path) + ".png", self.resize_shape
             )
         else:
-            depth = np.load(str(depth_path) + ".npz")["arr_0"] * 12
+            depth = np.load(str(depth_path) + ".npz")["arr_0"]
             depth = np.clip(depth, 0, 100)
             if size is not None:
                 depth = utils.interpolate_depth(depth, tuple(size))
