@@ -12,12 +12,9 @@
 # For mask annotation conversion see
 # lifting_mots/scripts/generate_motsynth_mask_annotations.py
 from configparser import ConfigParser
-from ctypes import Union
 from pathlib import Path
-from typing import Any, Optional
 
 import numpy as np
-from numpy import ndarray
 
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
@@ -204,9 +201,7 @@ class NewMOTSynthReader(object):
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
 
-    def _read_depth(
-        self, seq_id: str, frame_id: int, size: tuple = None
-    ) -> Union[Optional[ndarray], Any]:
+    def _read_depth(self, seq_id: str, frame_id: int, size: tuple = None):
         """read rotation and translation of the camera from origin to the current frame
         Args:
             seq_id: sequence id
