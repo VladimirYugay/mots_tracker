@@ -12,9 +12,12 @@
 # For mask annotation conversion see
 # lifting_mots/scripts/generate_motsynth_mask_annotations.py
 from configparser import ConfigParser
+from ctypes import Union
 from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
+from numpy import ndarray
 
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
@@ -70,7 +73,6 @@ class NewMOTSynthReader(object):
         if seq_id not in self.cache:
             self._init_cache(seq_id)
         img_path = self.cache["img_names"][frame_id]
-        boxes, box_ids, masks, mask_ids, raw_masks, image, depth, egomotion = [None] * 8
         boxes, box_ids, boxes_confidence = self._read_bb(frame_id + 1)
         masks, mask_ids, raw_masks, masks_confidence = self._read_seg_masks(
             seq_id, frame_id + 1
@@ -115,6 +117,8 @@ class NewMOTSynthReader(object):
         """
         # data format: frame_id, obj_id, class_id h, w,
         # mask string (or confidence score instead of obj_id))
+        if self.masks_path is None:
+            return None, None, None, None
         masks_data, mask_strings = self.cache["masks"]
         masks_data = masks_data.copy()
         mask_ids = masks_data[:, 1].astype(np.int64)
@@ -141,6 +145,8 @@ class NewMOTSynthReader(object):
         Returns:
             boxes, box_ids, confidence: boxes with their ids and confidence
         """
+        if self.boxes_path is None:
+            return None, None, None
         boxes = self.cache["boxes"].copy()
         confidence = np.ones(boxes.shape[0])
         # dependent on gt or other model inference, `obj_id` plays a role of
@@ -185,18 +191,22 @@ class NewMOTSynthReader(object):
         img_names.sort()
         self.cache = {seq_id: seq_id, "img_names": img_names}
 
-        bb_path = self.ann_path / seq_id / self.boxes_path
-        self.cache["boxes"] = read_mot_bb_file(str(bb_path))
+        if self.boxes_path is not None:
+            bb_path = self.ann_path / seq_id / self.boxes_path
+            self.cache["boxes"] = read_mot_bb_file(str(bb_path))
 
-        mask_path = self.ann_path / seq_id / self.masks_path
-        self.cache["masks"] = read_mot_seg_file(mask_path)
+        if self.masks_path is not None:
+            mask_path = self.ann_path / seq_id / self.masks_path
+            self.cache["masks"] = read_mot_seg_file(mask_path)
 
         if self.egomotion_path == "egomotion":  # gt path is egomotion
             egomotion_path = self.ann_path / seq_id / "gt" / "egomotion.txt"
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
 
-    def _read_depth(self, seq_id: str, frame_id: int, size: tuple = None) -> np.ndarray:
+    def _read_depth(
+        self, seq_id: str, frame_id: int, size: tuple = None
+    ) -> Union[Optional[ndarray], Any]:
         """read rotation and translation of the camera from origin to the current frame
         Args:
             seq_id: sequence id
