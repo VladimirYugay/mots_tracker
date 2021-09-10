@@ -79,11 +79,12 @@ class MOTSReader(object):
             box_scores,
             masks,
             mask_ids,
+            mask_scores,
             raw_masks,
             image,
             depth,
             egomotion,
-        ) = [None] * 9
+        ) = [None] * 10
         if self.boxes_path:
             boxes, box_ids, box_scores = self._read_bb(seq_id, frame_id + 1)
         if self.masks_path:
@@ -174,6 +175,8 @@ class MOTSReader(object):
         Returns:
             egomotion (ndarray): array representing rotation and translation
         """
+        if "dummy" in str(self.egomotion_path):
+            return np.eye(4)
         if self.egomotion_cache[seq_id] is None:
             path = self.data_path / self.mode / seq_id / self.egomotion_path
             rot = np.load(str(path / "rotations.npy"))
