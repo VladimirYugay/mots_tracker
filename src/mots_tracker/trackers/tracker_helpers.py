@@ -42,7 +42,7 @@ def iou3d_matrix(detections, trackers):
             det_box = convert_3dbox_to_8corner(det)
             track_box = convert_3dbox_to_8corner(track)
             iou3d_m, iou2d_m = iou3d(det_box, track_box)
-            iou_matrix[i][j] = 0.8 * iou3d_m + 0.2 * iou2d_m
+            iou_matrix[i][j] = iou3d_m
     return iou_matrix
 
 
@@ -114,6 +114,24 @@ def median_filter(cloud, radius=1):
     filtered_cloud = o3d.geometry.PointCloud()
     pts, colors = np.asarray(cloud.points), np.asarray(cloud.colors)
     median = np.median(pts, axis=0)
+    dist = np.linalg.norm(pts - median, axis=1)
+    pts, colors = pts[dist <= radius], colors[dist <= radius]
+    filtered_cloud.points = o3d.utility.Vector3dVector(pts)
+    filtered_cloud.colors = o3d.utility.Vector3dVector(colors)
+    return filtered_cloud
+
+
+def mean_filter(cloud, radius=1):
+    """filters outliers in the point clouds based on point deviations from the median point
+    Args:
+        cloud (o3d.geometry.PointCloud): point cloud to filter
+        radius (float): the maximum possible distance from the cloud median
+    Returns:
+        filtered_cloud (o3d.geometry.PointCloud) filtered point cloud
+    """
+    filtered_cloud = o3d.geometry.PointCloud()
+    pts, colors = np.asarray(cloud.points), np.asarray(cloud.colors)
+    median = np.mean(pts, axis=0)
     dist = np.linalg.norm(pts - median, axis=1)
     pts, colors = pts[dist <= radius], colors[dist <= radius]
     filtered_cloud.points = o3d.utility.Vector3dVector(pts)
