@@ -213,6 +213,27 @@ def read_motsynth_egomotion_file(path):
     return transformations
 
 
+def read_mots_vo_file(path):
+    """Reads segmentation mot file with relational positioning
+    Args:
+        path (str): path to the ground truth egomotion file
+    Returns:
+        egomotion (ndarray): array in [n_frames, 4, 4] format
+    """
+    rot = np.load(path + "/rotations.npy", allow_pickle=True)
+    trans = np.load(path + "/translations.npy", allow_pickle=True)
+    transformations = np.zeros((rot.shape[0], 4, 4), dtype=np.float64)
+    transformations[0, ...] = np.eye(4)
+    for i in range(1, rot.shape[0]):
+        t_diff = trans[i] - trans[i - 1]
+        r_diff = (
+            R.from_matrix(rot[i]).as_rotvec() - R.from_matrix(rot[i - 1]).as_rotvec()
+        )
+        r_diff = R.from_rotvec(r_diff).as_matrix()
+        transformations[i, ...] = utils.rt2transformation(r_diff, t_diff)
+    return transformations
+
+
 # def read_motsynth_egomotion_file(path):
 #     """Reads segmentation mot file with absolute positioning
 #     Args:
