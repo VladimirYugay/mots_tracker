@@ -175,18 +175,33 @@ class MOTSReader(object):
         Returns:
             egomotion (ndarray): array representing rotation and translation
         """
-        if "dummy" in str(self.egomotion_path):
+        static_seqs = ["MOTS20-01", "MOTS20-02", "MOTS20-07", "MOTS20-09"]
+
+        if (
+            "dummy" in str(self.egomotion_path)
+            or seq_id in static_seqs
+            or frame_id == 0
+        ):
             return np.eye(4)
         if self.egomotion_cache[seq_id] is None:
-            path = self.data_path / self.mode / seq_id / self.egomotion_path
-            rot = np.load(str(path / "rotations.npy"))
-            trans = np.load(str(path / "translations.npy"))
-            transformations = np.zeros((rot.shape[0], 4, 4))
-            transformations[:, :3, :] = np.concatenate((rot, trans[..., None]), axis=2)
-            transformations[:, -1, -1] = 1
-            self.egomotion_cache[seq_id] = transformations
-        if frame_id == 0:
-            return np.eye(4)
+            if "vo" not in str(self.egomotion_path):
+                path = self.data_path / self.mode / seq_id / self.egomotion_path
+                rot = np.load(str(path / "rotations.npy"), allow_pickle=True)
+                trans = np.load(str(path / "translations.npy"), allow_pickle=True)
+                transformations = np.zeros((rot.shape[0], 4, 4))
+                transformations[:, :3, :] = np.concatenate((rot, trans), axis=2)
+                transformations[:, -1, -1] = 1
+                self.egomotion_cache[seq_id] = transformations
+            elif "vo" in str(self.egomotion_path):
+                path = self.data_path / self.mode / seq_id / self.egomotion_path
+                self.egomotion_cache[seq_id] = reader_helpers.read_mots_vo_file(
+                    str(path)
+                )
+            elif "mono+stereo_640x192" in str(self.egomotion_path):
+                path = self.data_path / self.mode / seq_id / self.egomotion_path
+                self.egomotion_cache[seq_id] = np.load(
+                    str(path / "transformations.npy")
+                )
         return self.egomotion_cache[seq_id][frame_id - 1]
 
     def _read_bb(self, seq_id, frame_id):
