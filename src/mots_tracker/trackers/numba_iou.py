@@ -107,13 +107,13 @@ def iou3d(corners1, corners2):
     area2 = poly_area(top_rect2[:, 0], top_rect2[:, 1])
 
     _, inter_area = convex_hull_intersection(top_rect1, top_rect2)
-    iou_2d = inter_area / (area1 + area2 - inter_area)
+    iou_2d = inter_area / (area1 + area2 - inter_area + np.finfo(float).eps)
     ymax = min(corners1[0, 1], corners2[0, 1])
     ymin = max(corners1[1, 1], corners2[1, 1])
     inter_vol = inter_area * max(0.0, ymax - ymin)
     vol1 = box3d_vol(corners1)
     vol2 = box3d_vol(corners2)
-    iou = inter_vol / (vol1 + vol2 - inter_vol)
+    iou = inter_vol / (vol1 + vol2 - inter_vol + np.finfo(float).eps)
     return iou, iou_2d
 
 
