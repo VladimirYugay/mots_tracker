@@ -1,4 +1,5 @@
 """ Class tracking medians """
+from copy import deepcopy
 from functools import partial
 
 import numpy as np
@@ -38,9 +39,9 @@ class MedianProjectionTracker(BaseTracker):
         if detections.shape[0] == 0:
             return self.filter_trackers()
 
-        trackers_predictions, trackers_masks = self.predict()
+        trackers_masks = self.predict()
         matched, unmatched_detections, _ = self.associate_detections_to_trackers(
-            (detections, detection_projections), (trackers_predictions, trackers_masks)
+            (detections, detection_projections), trackers_masks
         )
         self.update_matched_trackers(matched, detections, info)
         self.init_unmatched_trackers(unmatched_detections, detections, info)
@@ -59,7 +60,7 @@ class MedianProjectionTracker(BaseTracker):
             cloud.transform(sample["egomotion"])
         projections = np.array(
             [
-                utils.cloud2img(cloud, self.dims, sample["intrinsics"])
+                utils.cloud2img(cloud, sample["image"].shape[:2], sample["intrinsics"])
                 for cloud in clouds
             ]
         )
@@ -71,6 +72,9 @@ class MedianProjectionTracker(BaseTracker):
                 "mask": sample["masks"][i, :],
                 "raw_mask": sample["raw_masks"][i],
                 "box": sample["boxes"][i],
+                "cloud": clouds[i],
+                "intrinsics": sample["intrinsics"],
+                "shape": sample["image"].shape[:2],
             }
             for i in range(medians.shape[0])
         }
@@ -81,14 +85,24 @@ class MedianProjectionTracker(BaseTracker):
         predictions = np.zeros((len(self.trackers), self.representation_size))
         to_del = []
         for t, prediction in enumerate(predictions):
-            prediction[:] = np.array(self.trackers[t].predict())
+            self.trackers[t].predict()
+            prediction[:] = np.array(self.trackers[t].history[-1][3:][:, 0])
             if np.any(np.isnan(prediction)):
                 to_del.append(t)
         predictions = np.ma.compress_rows(np.ma.masked_invalid(predictions))
         for t in reversed(to_del):
             self.trackers.pop(t)
-        masks = np.array([t.info["mask"] for t in self.trackers])
-        return predictions, masks
+        clouds = [deepcopy(t.info["cloud"]) for t in self.trackers]
+        clouds = [cloud.translate(v) for cloud, v in zip(clouds, predictions)]
+        projections = np.array(
+            [
+                utils.cloud2img(cloud, t.info["shape"], t.info["intrinsics"])
+                for cloud, t in zip(clouds, self.trackers)
+            ]
+        )
+        if projections.shape[0] > 0:
+            projections = utils.fill_masks(projections)
+        return projections
 
     def init_unmatched_trackers(self, unmatched_detections_ids, detections, info):
         for i in unmatched_detections_ids:
@@ -110,7 +124,6 @@ class MedianProjectionTracker(BaseTracker):
     def associate_detections_to_trackers(self, detections, trackers):
         """ Assigns detections to tracked object (both as bounding boxes) """
         detections, detections_projections = detections
-        trackers, trackers_masks = trackers
         if len(trackers) == 0:
             return (
                 np.empty((0, 2), dtype=int),
@@ -118,7 +131,7 @@ class MedianProjectionTracker(BaseTracker):
                 np.empty((0, self.representation_size)),
             )
 
-        iou_projections = iou_string_masks(detections_projections, trackers_masks)
+        iou_projections = iou_string_masks(detections_projections, trackers)
 
         if min(iou_projections.shape) > 0:
             a = (iou_projections > self.dist_threshold).astype(np.int32)
