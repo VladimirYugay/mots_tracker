@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation
 
 from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import get_instance, load_yaml
-from mots_tracker.readers.motsynth_reader import INTRINSICS
+from mots_tracker.readers.new_motsynth_reader import INTRINSICS
 from mots_tracker.trackers import numba_iou, tracker_helpers
 from mots_tracker.trackers.tracker_helpers import iou_masks
 
@@ -40,7 +40,8 @@ def profile_iou3d():
     b = o3d.geometry.TriangleMesh.create_box(width=1, height=2, depth=3)
     b.compute_vertex_normals()
     b.paint_uniform_color([0.1, 0.1, 0.9])
-    b.translate([0, 0, 1.5])
+    b.translate([0, -1, 5])
+    # vis_utils.plot_ptcloud([a, b])
 
     a_box = a.get_axis_aligned_bounding_box()
     b_box = b.get_axis_aligned_bounding_box()
@@ -50,8 +51,10 @@ def profile_iou3d():
     b_conv = numba_iou.convert_3dbox_to_8corner(
         np.concatenate((b_box.get_center(), b_box.get_extent()))
     )
-
-    numba_iou.iou3d(a_conv, b_conv)
+    print(a_conv)
+    print(b_conv)
+    print(numba_iou.iou3d(a_conv, b_conv))
+    print(numba_iou.iou2d(a_conv, b_conv))
     # vis_utils.plot_ptcloud([a, b])
 
 
@@ -212,31 +215,35 @@ def profile_gt_bb(sample):
     vis_utils.plot_ptcloud(clouds + list(boxes.values()))
 
 
+def profile_3d_bb(reader, seq_id, frame_id):
+    from mots_tracker.trackers import tracker_helpers
+
+    sample_left = reader.read_sample(seq_id, frame_id)
+    sample_right = reader.read_sample(seq_id, frame_id + 1)
+    clouds_left = utils.compute_mask_clouds(
+        sample_left, tracker_helpers.depth_median_filter
+    )
+    clouds_right = utils.compute_mask_clouds_no_color(
+        sample_right["depth"],
+        sample_right["masks"],
+        sample_right["intrinsics"],
+        tracker_helpers.depth_median_filter,
+    )
+    bbs_left = list(utils.compute_axis_aligned_bbs(clouds_left).values())
+    bbs_right = list(utils.compute_axis_aligned_bbs(clouds_right).values())
+
+    vis_utils.plot_ptcloud(clouds_left + bbs_left + bbs_right + clouds_right)
+
+
 def main():
     """ visual profiling for generated motsynth bb """
-    config = {
-        "depth_path": "gt_depth_new",
-        "egomotion_path": "egomotion",
-        "read_masks": True,
-        "read_boxes": True,
-        "gt_path": "/home/vy/university/thesis/datasets/MOTSynth_annotations/all",
-        "split_path": None,
-    }
-
-    config_path = "./configs/median_tracker_config.yaml"
+    config_path = "./configs/3dbb_tracker_config.yaml"
     config = load_yaml(config_path)
     reader = get_instance(readers, "reader", config)
+    seq_id, frame_id = "MOTS20-02", 3
 
-    # 323 too close
-    seq_id, frame_id = "045", 348
-    sample = reader.read_sample(seq_id, frame_id)
-    print(sample.keys())
-    # profile_gt_bb(sample)
-    # profile_back_proj(sample)
-    # profile_gta()
-    # profile_back_proj_transformation(reader, seq_id, frame_id)
-    # profile_filling(sample)
-    # profile_aligned_bb()
+    profile_3d_bb(reader, seq_id, frame_id)
+    # profile_iou3d()
 
 
 if __name__ == "__main__":
