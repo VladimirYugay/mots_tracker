@@ -92,7 +92,7 @@ class BBox3dTracker(BaseTracker):
                 np.empty((0, self.representation_size)),
             )
 
-        iou3dmatrix = iou3d_matrix(detections, trackers)
+        iou3dmatrix = iou3d_matrix(detections, trackers, mixed=True)
 
         if min(iou3dmatrix.shape) > 0:
             a = (iou3dmatrix > self.dist_threshold).astype(np.int32)
