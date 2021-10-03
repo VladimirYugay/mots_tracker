@@ -1,5 +1,5 @@
-output_path: "./data/output/3dbb_egomotion"
-cores: 3
+output_path: "./data/output/3dbb_mots_adabins_best_5_dev_001_thres_hits_1"
+cores: 4
 
 #reader:
 #  type: NewMOTSynthReader
@@ -21,15 +21,17 @@ reader:
     boxes_path: "gt/gt_bb.txt"
     masks_path: "gt/gt.txt"
     resize_shape: null
-    depth_path: "mono+stereo_640x192"
+    depth_path: "adabins_mots_best.pt"
     egomotion_path: null
     mode: "train"
+    conf_thres: -1
+    # seq_ids: ["MOTS20-11"]
 
 tracker:
   type: BBox3dTracker
   args:
     max_age: 15
     min_hits: 1
-    dist_threshold: 0.001
-    use_egomotion: true
-    depth_deviation: 1
+    dist_threshold: 0.01
+    use_egomotion: false
+    depth_deviation: 5
