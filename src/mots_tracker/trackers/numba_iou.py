@@ -117,6 +117,28 @@ def iou3d(corners1, corners2):
     return iou, iou_2d
 
 
+def iou2d(corners1, corners2):
+    """Compute 3D bounding box IoU, only working for object parallel to ground
+    Input:
+        corners1: numpy array (8,3), assume up direction is negative Y
+        corners2: numpy array (8,3), assume up direction is negative Y
+    Output:
+        iou: 2D box IoU of the facing surface
+    """
+    # take the facing surfaces top left bottom right format
+    # pixel image coordinate system
+    rows, cols = np.array([0, 1, 2, 3]), np.array([0, 1])
+    face_rect1 = corners1[rows, :][:, cols]
+    face_rect2 = corners2[rows, :][:, cols]
+    # print(face_rect1[:, 0], face_rect1[:, 1])
+    area1 = poly_area(face_rect1[:, 0], face_rect1[:, 1])
+    area2 = poly_area(face_rect2[:, 0], face_rect2[:, 1])
+    # print(area1, area2, "AXAXA")
+    _, inter_area = convex_hull_intersection(face_rect1, face_rect2)
+    iou_2d = inter_area / (area1 + area2 - inter_area + np.finfo(float).eps)
+    return iou_2d
+
+
 def roty(t):
     """ Rotation about the y-axis. """
     c = np.cos(t)

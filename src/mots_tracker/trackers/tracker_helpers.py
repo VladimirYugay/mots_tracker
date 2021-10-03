@@ -4,7 +4,7 @@ import open3d as o3d
 from pycocotools import mask as rletools
 
 from mots_tracker import utils
-from mots_tracker.trackers.numba_iou import convert_3dbox_to_8corner, iou3d
+from mots_tracker.trackers.numba_iou import convert_3dbox_to_8corner, iou2d, iou3d
 
 
 def linear_assignment(cost_matrix):
@@ -26,7 +26,7 @@ def pairwise_distance(detections, trackers):
     return np.linalg.norm(detections[:, None, :] - trackers[None, :, :], axis=-1)
 
 
-def iou3d_matrix(detections, trackers):
+def iou3d_matrix(detections, trackers, mixed=False):
     """computes pairwise 3D IoU between detections and existing bounding boxes
     Args:
         detections (ndarray): n bounding boxes as detections
@@ -41,8 +41,10 @@ def iou3d_matrix(detections, trackers):
         for j, track in enumerate(trackers):
             det_box = convert_3dbox_to_8corner(det)
             track_box = convert_3dbox_to_8corner(track)
-            iou3d_m, iou2d_m = iou3d(det_box, track_box)
+            iou3d_m, _ = iou3d(det_box, track_box)
             iou_matrix[i][j] = iou3d_m
+            if mixed:
+                iou_matrix[i][j] = 0.5 * iou3d_m + 0.5 * iou2d(det_box, track_box)
     return iou_matrix
 
 
