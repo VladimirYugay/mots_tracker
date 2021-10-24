@@ -26,16 +26,16 @@ def run_eval(config_path):
     config = load_yaml(config_path)
     reader_pred = get_instance(readers, "reader", config)
     seq_ids = sorted(reader_pred.sequence_info.keys())
-    config["depth_path"] = "gt_depth_new"
+    config["reader"]["args"]["depth_path"] = "gt_depth_new"
     reader_gt = get_instance(readers, "reader", config)
     min_depth, max_depth = 0, 100
     errors = []
     for seq_id in seq_ids:
         for frame in range(reader_pred.sequence_info[seq_id]["length"]):
-            gt_depth = reader_gt.read_sample(seq_id, frame)
+            gt_depth = reader_gt.read_sample(seq_id, frame)["depth"]
             gt_depth[gt_depth > max_depth] = max_depth
 
-            pred_depth = reader_pred.read_sample(seq_id, frame)
+            pred_depth = reader_pred.read_sample(seq_id, frame)["depth"]
             pred_depth[pred_depth < min_depth] = min_depth
             pred_depth[pred_depth > max_depth] = max_depth
 
