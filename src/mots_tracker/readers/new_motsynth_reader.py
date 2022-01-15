@@ -21,6 +21,8 @@ from mots_tracker.readers import reader_helpers
 from mots_tracker.readers.reader_helpers import (
     read_mot_bb_file,
     read_mot_seg_file,
+    read_motsynth_2d_keypoints_file,
+    read_motsynth_3d_keypoints_file,
     read_motsynth_egomotion_file,
 )
 
@@ -40,6 +42,9 @@ class NewMOTSynthReader(object):
         resize_shape: tuple = None,
         depth_path: str = "gt_depth_new",
         egomotion_path: str = "egomotion",
+        keypoints_2d_path: str = "gt/keypoints_2d.txt",
+        keypoints_3d_path: str = "gt/keypoints_3d.txt",
+        num_kpts=22,
         split_path: str = None,
     ):
         """Reader constructor
@@ -55,6 +60,9 @@ class NewMOTSynthReader(object):
         self.depth_path = depth_path
         self.egomotion_path = egomotion_path
         self.split_path = split_path
+        self.num_kpts = num_kpts
+        self.keypoints_2d_path = keypoints_2d_path
+        self.keypoints_3d_path = keypoints_3d_path
         # keep cache only for one sequence since they're large
         self.cache = {}  # image names, box annotations, mask annotations
         self.sequence_info = self._init_sequence_info()
@@ -78,6 +86,9 @@ class NewMOTSynthReader(object):
         depth = self._read_depth(seq_id, frame_id, self.resize_shape)
         egomotion = self.cache["egomotion"][frame_id]
         intrinsics = INTRINSICS
+        _, keypoints_2d = self._read_kpts(frame_id + 1, is_3d=False)
+        _, keypoints_3d = self._read_kpts(frame_id + 1, is_3d=True)
+
         if self.resize_shape is not None:
             width, height = image.size
             intrinsics = utils.scale_intrinsics(
@@ -98,6 +109,8 @@ class NewMOTSynthReader(object):
             "image": np.array(image),
             "masks": masks.astype(np.uint8) if masks is not None else masks,
             "mask_ids": mask_ids,
+            "keypoints_2d": keypoints_2d,
+            "keypoints_3d": keypoints_3d,
             "masks_confidence": masks_confidence,
             "raw_masks": raw_masks,
             "intrinsics": intrinsics,
@@ -154,8 +167,24 @@ class NewMOTSynthReader(object):
         frame_boxes = frame_data[:, [2, 3, 4, 5]]
         frame_boxes[:, 2] = frame_boxes[:, 0] + frame_boxes[:, 2]
         frame_boxes[:, 3] = frame_boxes[:, 1] + frame_boxes[:, 3]
-
         return frame_boxes, frame_data[:, 1].astype(np.int64), boxes[:, 1]
+
+    def _read_kpts(self, frame_id: int, is_3d=False) -> tuple:
+        """read all kpts (2D or 3D) for a given frame
+        Args:
+            frame_id (int): frame id
+        Returns:
+            keypoints, keypoint_ids: keypoints with their ids
+        """
+        if self.keypoints_2d_path is None:
+            return None, None
+        keypoints = self.cache["keypoints_2d"].copy()
+        if is_3d:
+            keypoints = self.cache["keypoints_3d"].copy()
+        frame_kpts = keypoints[keypoints[:, 0] == frame_id]
+        kpt_ids = frame_kpts[:, 1]
+        kpts = frame_kpts[:, 2:].reshape(kpt_ids.shape[0], self.num_kpts, -1)
+        return kpt_ids, kpts
 
     def _init_sequence_info(self):
         """ Initializes information about the sequences """
@@ -196,13 +225,26 @@ class NewMOTSynthReader(object):
             mask_path = self.ann_path / seq_id / self.masks_path
             self.cache["masks"] = read_mot_seg_file(mask_path)
 
+        if self.keypoints_2d_path is not None:
+            keypoints_path = self.ann_path / seq_id / self.keypoints_2d_path
+            self.cache["keypoints_2d"] = read_motsynth_2d_keypoints_file(keypoints_path)
+
+        if self.keypoints_3d_path is not None:
+            keypoints_path = self.ann_path / seq_id / self.keypoints_3d_path
+            self.cache["keypoints_3d"] = read_motsynth_3d_keypoints_file(keypoints_path)
+
         if self.egomotion_path == "egomotion":  # gt path is egomotion
-            print("AXAXXAAX")
             egomotion_path = self.ann_path / seq_id / "gt" / "egomotion.txt"
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
         else:
-            self.cache["egomotion"] = np.repeat(np.eye(4)[None, ], 1800, axis=0)
+            self.cache["egomotion"] = np.repeat(
+                np.eye(4)[
+                    None,
+                ],
+                1800,
+                axis=0,
+            )
 
     def _read_depth(self, seq_id: str, frame_id: int, size: tuple = None):
         """read rotation and translation of the camera from origin to the current frame

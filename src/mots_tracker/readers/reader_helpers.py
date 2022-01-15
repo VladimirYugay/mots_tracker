@@ -202,7 +202,7 @@ def read_motsynth_2d_keypoints_file(path: str, keypoints_num=22) -> np.ndarray:
     kpt_lines = ktp_file.readlines()
     kpt_2d_data = np.zeros(
         (len(kpt_lines), keypoints_num * 3 + 2), dtype=np.int
-    )  # in the pixel space, hence integers 
+    )  # in the pixel space, hence integers
     for i, line in enumerate(kpt_lines):
         kpt_2d_data[i, ...] = np.array(line.split(","), dtype=np.int)
     ktp_file.close()
@@ -220,7 +220,7 @@ def read_motsynth_3d_keypoints_file(path: str, keypoints_num=22) -> np.ndarray:
     ktp_file = open(path, "r")
     kpt_lines = ktp_file.readlines()
     kpt_3d_data = np.zeros(
-        (len(kpt_lines), keypoints_num * 3 + 2), dtype=np.float32
+        (len(kpt_lines), keypoints_num * 4 + 2), dtype=np.float32
     )  # in the real world space, hence float
     for i, line in enumerate(kpt_lines):
         kpt_3d_data[i, ...] = np.array(line.split(","), dtype=np.float32)
