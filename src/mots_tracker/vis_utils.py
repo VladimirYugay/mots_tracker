@@ -150,19 +150,27 @@ def plot_image_2d_keypoints(image, keypoints, keypoint_ids=None):
     plt.show()
 
 
+def plot_2d_keypoints(keypoints, keypoint_ids=None):
+    fig, ax = plt.subplots(1, dpi=96)
+    for i, kpts in enumerate(keypoints):
+        ax.scatter(kpts[:, 0], kpts[:, 1])
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.show()
+
+
 def plot_3d_keypoints(keypoints, keypoint_ids=None):
     fig = plt.figure()
     ax = fig.gca(projection="3d")
-
-    for i, kpts in enumerate(keypoints):
-        color = (
-            M_COLORS[keypoint_ids[i]]
-            if keypoint_ids is not None
-            else np.random.uniform(0, 1, size=3)
+    ax.set_box_aspect(
+        (
+            np.ptp(keypoints[..., 0]),
+            np.ptp(keypoints[..., 1]),
+            np.ptp(keypoints[..., 2]),
         )
-        if keypoint_ids is not None:
-            plt.text(*kpts[10, :3], keypoint_ids[i], color=color)
-        ax.scatter3D(kpts[:, 0], kpts[:, 1], kpts[:, 2], c=color)
+    )
+    for i, kpts in enumerate(keypoints):
+        ax.scatter3D(kpts[:, 0], kpts[:, 1], kpts[:, 2])
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.show()
