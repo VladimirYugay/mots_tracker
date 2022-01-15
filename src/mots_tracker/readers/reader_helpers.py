@@ -178,14 +178,54 @@ def read_mot_seg_file(path):
         split_line = line.split(" ")
         # here, ped_id can be either pedestrian id in case of gt data
         # or a confidence score of a predictor
-        if len(split_line) > 6:  # trackrcnn public detections
+        if len(split_line) == 10:  # trackrcnn public detections
             frame_id, _, _, _, _, ped_id, _, height, width, mask_string = split_line
+        elif len(split_line) == 5:  # detectron2 detections
+            frame_id, ped_id, height, width, mask_string = split_line
         else:
             frame_id, ped_id, _, height, width, mask_string = split_line
         seg_data[i, ...] = np.array([frame_id, ped_id, height, width], dtype=np.float64)
         mask_strings[i] = mask_string.strip()
     seg_file.close()
-    return (seg_data, mask_strings)
+    return seg_data, mask_strings
+
+
+def read_motsynth_2d_keypoints_file(path: str, keypoints_num=22) -> np.ndarray:
+    """Reads motsynth 2D keypoints file
+    Args:
+        path (str): path to the ground truth file
+        keypoints_num (int): number of keypoints per body
+    Returns:
+        keypoints_2d: integer array of shape Nx3
+    """
+    ktp_file = open(path, "r")
+    kpt_lines = ktp_file.readlines()
+    kpt_2d_data = np.zeros(
+        (len(kpt_lines), keypoints_num * 3 + 2), dtype=np.int
+    )  # in the pixel space, hence integers 
+    for i, line in enumerate(kpt_lines):
+        kpt_2d_data[i, ...] = np.array(line.split(","), dtype=np.int)
+    ktp_file.close()
+    return kpt_2d_data
+
+
+def read_motsynth_3d_keypoints_file(path: str, keypoints_num=22) -> np.ndarray:
+    """Reads motsynth 3D keypoints file
+    Args:
+        path (str): path to the ground truth file
+        keypoints_num (int): number of keypoints per body
+    Returns:
+        keypoints_3d: integer array of shape Nx4
+    """
+    ktp_file = open(path, "r")
+    kpt_lines = ktp_file.readlines()
+    kpt_3d_data = np.zeros(
+        (len(kpt_lines), keypoints_num * 3 + 2), dtype=np.float32
+    )  # in the real world space, hence float
+    for i, line in enumerate(kpt_lines):
+        kpt_3d_data[i, ...] = np.array(line.split(","), dtype=np.float32)
+    ktp_file.close()
+    return kpt_3d_data
 
 
 def read_motsynth_egomotion_file(path):
