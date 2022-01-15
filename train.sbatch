@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name="reproj_tracker"
+#SBATCH --job-name="reproj"
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=1
-#SBATCH --gres=gpu:1,VRAM:16G
-#SBATCH --mem=16G
-#SBATCH --time=100:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --time=50:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --output=/storage/slurm/yugay/logs/slurm-%j.out
 #SBATCH --error=/storage/slurm/yugay/logs/slurm-%j.out

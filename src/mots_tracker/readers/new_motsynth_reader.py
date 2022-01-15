@@ -197,9 +197,12 @@ class NewMOTSynthReader(object):
             self.cache["masks"] = read_mot_seg_file(mask_path)
 
         if self.egomotion_path == "egomotion":  # gt path is egomotion
+            print("AXAXXAAX")
             egomotion_path = self.ann_path / seq_id / "gt" / "egomotion.txt"
             egomotion = read_motsynth_egomotion_file(egomotion_path)
             self.cache["egomotion"] = egomotion
+        else:
+            self.cache["egomotion"] = np.repeat(np.eye(4)[None, ], 1800, axis=0)
 
     def _read_depth(self, seq_id: str, frame_id: int, size: tuple = None):
         """read rotation and translation of the camera from origin to the current frame
