@@ -1,0 +1,24 @@
+output_path: "./data/output/reproj"
+cores: 3
+
+reader:
+ type: NewMOTSynthReader
+ args:
+   data_path: "/home/vy/university/thesis/datasets/MOTSynth"
+   ann_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
+   boxes_path: "gt/gt.txt"
+   masks_path: "gt/gt_masks.txt"
+   resize_shape: null
+   depth_path: "gt_depth_new"
+   egomotion_path: "egomotion"
+   keypoints_2d_path: "gt/keypoints_2d.txt"
+   keypoints_3d_path: "gt/keypoints_3d.txt"
+   split_path: "debug_split/test.txt"
+
+tracker:
+  type: MedianProjectionTracker
+  args:
+    max_age: 15
+    min_hits: 1
+    dist_threshold: 0.001
+    dims: [1080, 1920]
