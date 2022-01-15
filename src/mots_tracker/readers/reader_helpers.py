@@ -57,22 +57,6 @@ def read_file_names(path):
     return [str(file_name) for file_name in path.glob("**/*")]
 
 
-# def load_motsynth_depth_image(img_path, shape=None):
-#     """Load depth image from .png file
-#     Args:
-#         img_path (str): path to the image
-#     Returns:
-#         ndarray: depth map
-#     """
-#     depth_img = Image.open(img_path).convert("L")
-#     if shape is not None:
-#         depth_img = depth_img.resize(shape, Image.NEAREST)
-#     depth_img = np.array(depth_img)
-#     depth_img = 255 - depth_img
-#     depth_img = depth_img / 12  # 1 meter is approximately 12 "values"
-#     return np.asarray(depth_img, dtype=np.float32)
-
-
 def load_motsynth_depth_image(img_path, shape=None, max_depth=50):
     """Load depth image from .png file
     Args:
