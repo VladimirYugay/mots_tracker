@@ -135,6 +135,39 @@ def plot_image_masks(image, masks, mask_ids=None):
     plt.show()
 
 
+def plot_image_2d_keypoints(image, keypoints, keypoint_ids=None):
+    fig, ax = plt.subplots(1, dpi=96)
+    ax.imshow(image)
+    for i, kpts in enumerate(keypoints):
+        color = (
+            M_COLORS[keypoint_ids[i]]
+            if keypoint_ids is not None
+            else np.random.uniform(0, 1, size=3)
+        )
+        plt.scatter(kpts[:, 0], kpts[:, 1], color=color)
+        if keypoint_ids is not None:
+            plt.text(kpts[10, 0], kpts[10, 1], keypoint_ids[i], color=color)
+    plt.show()
+
+
+def plot_3d_keypoints(keypoints, keypoint_ids=None):
+    fig = plt.figure()
+    ax = fig.gca(projection="3d")
+
+    for i, kpts in enumerate(keypoints):
+        color = (
+            M_COLORS[keypoint_ids[i]]
+            if keypoint_ids is not None
+            else np.random.uniform(0, 1, size=3)
+        )
+        if keypoint_ids is not None:
+            plt.text(*kpts[10, :3], keypoint_ids[i], color=color)
+        ax.scatter3D(kpts[:, 0], kpts[:, 1], kpts[:, 2], c=color)
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.show()
+
+
 def plot_ptcloud(point_clouds, show_frame=True):
     """visualizes point cloud
     Args:
