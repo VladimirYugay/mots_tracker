@@ -8,11 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import mots_tracker
-from mots_tracker import readers, trackers, utils, vis_utils
-from mots_tracker.io_utils import (
+from mots_tracker import readers, trackers, vis_utils
+from mots_tracker.io_utils import (  # print_mot_format,
     get_instance,
     load_yaml,
-    print_mot_format,
     print_mots_format,
 )
 
@@ -44,11 +43,11 @@ def main(config_path, log_level):
 
     config = load_yaml(config_path)
 
-    reader_config = config["reader"]["args"]
+    # reader_config = config["reader"]["args"]
     output_path = Path(config["output_path"])
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "MOTS").mkdir(parents=True, exist_ok=True)
-    (output_path / "MOT").mkdir(parents=True, exist_ok=True)
+    # (output_path / "MOT").mkdir(parents=True, exist_ok=True)
     reader = get_instance(readers, "reader", config)
     seq_ids = sorted(reader.sequence_info.keys())
 
@@ -61,7 +60,7 @@ def main(config_path, log_level):
         tracker = get_instance(trackers, "tracker", config)
         width = reader.sequence_info[seq]["img_width"]
         height = reader.sequence_info[seq]["img_height"]
-        mot_out_file = open(str(output_path / "MOT" / "{}.txt".format(seq)), "w")
+        # mot_out_file = open(str(output_path / "MOT" / "{}.txt".format(seq)), "w")
         mots_out_file = open(str(output_path / "MOTS" / "{}.txt".format(seq)), "w")
         for frame in range(reader.sequence_info[seq]["length"]):
             logging.log(
@@ -77,17 +76,18 @@ def main(config_path, log_level):
 
             for box_id, bb in enumerate(sample["boxes"]):
                 bb = bb.astype(np.int32)
+                print(bb)
                 vis_utils.plot_box_patch(axis_gt, bb, box_id)
 
             tracks = tracker.update(sample, sample["intrinsics"])
 
             for (raw_mask, box, idx) in tracks:
-                resize_shape = reader_config.get("resize_shape", None)
-                if resize_shape is not None:
-                    box = utils.resize_boxes(
-                        box[None, :], resize_shape, (width, height)
-                    )[0, :]
-                print_mot_format(frame, idx, box, mot_out_file)
+                # resize_shape = reader_config.get("resize_shape", None)
+                # if resize_shape is not None:
+                #     box = utils.resize_boxes(
+                #         box[None, :], resize_shape, (width, height)
+                #     )[0, :]
+                # print_mot_format(frame, idx, box, mot_out_file)
                 print_mots_format(frame, idx, height, width, raw_mask, mots_out_file)
                 vis_utils.plot_box_patch(axis_track, box, idx)
 
@@ -96,7 +96,7 @@ def main(config_path, log_level):
             axis_track.cla()
             axis_gt.cla()
 
-        mot_out_file.close()
+        # mot_out_file.close()
         mots_out_file.close()
 
 
