@@ -74,8 +74,6 @@ class PoseTracker(BaseTracker):
             )
 
         distance_matrix = pairwise_distance(detections, trackers)
-        np.set_printoptions(suppress=True, precision=3)
-        print(distance_matrix)
 
         if min(distance_matrix.shape) > 0:
             a = (distance_matrix < self.dist_threshold).astype(np.int32)
