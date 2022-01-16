@@ -1,4 +1,4 @@
-output_path: "./data/output/reproj"
+output_path: "./data/output/keypoints"
 cores: 3
 
 reader:
@@ -16,9 +16,10 @@ reader:
    split_path: "debug_split/test.txt"
 
 tracker:
-  type: MedianProjectionTracker
+  type: PoseTracker
   args:
     max_age: 15
     min_hits: 1
-    dist_threshold: 0.001
-    dims: [1080, 1920]
+    dist_threshold: 3
+    num_keypoints: 22
+    is_3d: True
