@@ -9,17 +9,18 @@ from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.trackers import tracker_helpers
 
 
+def profile_clouds(reader, seq_id, frame_id):
+    """ See the clouds """
+    sample = reader.read_sample(seq_id, frame_id)
+    cloud_filter = partial(tracker_helpers.depth_median_filter, radius=0.3)
+    clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    vis_utils.plot_ptcloud(clouds, False)
+
+
 def profile_depth(reader, seq_id, frame_id):
     """ See the depth """
     sample = reader.read_sample(seq_id, frame_id)
     vis_utils.plot_image(sample["depth"], image_type="Depth")
-
-
-def profile_clouds(reader, seq_id, frame_id):
-    """ See the clouds """
-    sample = reader.read_sample(seq_id, frame_id)
-    clouds = utils.compute_mask_clouds(sample, tracker_helpers.depth_median_filter)
-    vis_utils.plot_ptcloud(clouds, False)
 
 
 def profile_scene_cloud(reader, seq_id, frame_id):
@@ -29,7 +30,7 @@ def profile_scene_cloud(reader, seq_id, frame_id):
     #       '/home/vy/university/thesis/datasets/000/gt_depth/0000.png')
     depth = sample["depth"]
     scene = utils.rgbd2ptcloud(sample["image"], depth, sample["intrinsics"])
-    vis_utils.plot_ptcloud(scene)
+    vis_utils.plot_ptcloud(scene, False)
 
 
 def convert_depth(img_path):
@@ -100,17 +101,19 @@ def main():
     """ visual profiling for generated motsynth bb """
     config_path = "./configs/median_tracker_config.yaml"
     config = load_yaml(config_path)
-    config["reader"]["args"]["boxes_path"] = "mask_rcnn/boxes.txt"
-    config["reader"]["args"]["masks_path"] = "mask_rcnn/masks.txt"
     reader = get_instance(readers, "reader", config)
-    seq_id, frame_id = "000", 0
+    seq_id, frame_id = "045", 295
     sample = reader.read_sample(seq_id, frame_id)
+    sample["masks"] = sample["masks"][[0, 1]]
+    # profile_new_depth_boxes(sample)
+    # vis_utils.plot_image_masks(
+    #   sample["image"], sample["masks"], range(len(sample["masks"])))
+    # vis_utils.plot_image_boxes(sample["image"], sample["boxes"][[0, 1]], np.arange(2))
 
-    vis_utils.plot_image_boxes(sample["image"], sample["boxes"])
-    vis_utils.plot_image_masks(sample["image"], sample["masks"])
     # vis_utils.plot_image_masks(sample['image'], sample['masks'])
     # profile_new_depth_boxes(sample)
     # profile_scene_cloud(reader, seq_id, frame_id)
+    # profile_clouds(reader, seq_id, frame_id)
     # profile_new_depth_rotated_boxes(reader, seq_id, frame_id)
 
 
