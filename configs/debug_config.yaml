@@ -1,5 +1,5 @@
 output_path: "./data/output/test"
-cores: 3
+cores: 1
 
 #reader:
 #  type: NewMOTSynthReader
@@ -27,8 +27,8 @@ reader:
     conf_thres: -1
 
 tracker:
-  type: BBox2dTracker
+  type: BBox3dTracker
   args:
-    max_age: 1
+    max_age: 5
     min_hits: 1
-    dist_threshold: 0.3
+    dist_threshold: 0.1
