@@ -1,6 +1,8 @@
 """ profiling MOTS dataset """
 from functools import partial
 
+import numpy as np
+
 from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.trackers.tracker_helpers import depth_median_filter
@@ -40,9 +42,19 @@ def profile_depth(reader, seq_id, frame_id):
 def profile_clouds(reader, seq_id, frame_id):
     """ See the clouds """
     sample = reader.read_sample(seq_id, frame_id)
-    cloud_filter = partial(depth_median_filter, radius=0.1)
-    clouds = utils.compute_mask_clouds(sample, cloud_filter)
-    vis_utils.plot_ptcloud(clouds, False)
+    cloud_filter = partial(depth_median_filter, radius=0.3)
+    left_clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    vis_utils.colorize_clouds(left_clouds, [0] * len(left_clouds))
+
+    sample = reader.read_sample(seq_id, frame_id + 1)
+    right_clouds = utils.compute_mask_clouds(sample, cloud_filter)
+    vis_utils.colorize_clouds(right_clouds, [126] * len(right_clouds))
+    left_boxes = list(utils.compute_axis_aligned_bbs(left_clouds).values())
+    right_boxes = list(utils.compute_axis_aligned_bbs(right_clouds).values())
+    # print(len(clouds), type(clouds[0]))
+    # vis_utils.colorize_clouds(tmp)
+    # print(type(boxes))
+    vis_utils.plot_ptcloud(left_clouds + right_clouds + left_boxes + right_boxes, False)
 
 
 def profile_scene(reader, seq_id, frame_id):
@@ -58,14 +70,17 @@ def main():
     config_path = "./configs/2dbb_tracker_config.yaml"
     config = load_yaml(config_path)
     reader = get_instance(readers, "reader", config)
-    seq_id, frame_id = "MOTS20-02", 0
-
-    # vis_utils.plot_image_masks(sample['image'], sample['masks'])
+    seq_id, frame_id = "MOTS20-02", 295
+    sample = reader.read_sample(seq_id, frame_id)
+    flag = np.in1d(sample["mask_ids"], [20, 38])
+    sample["masks"] = sample["masks"][flag]
+    sample["mask_ids"] = sample["mask_ids"][flag]
+    vis_utils.plot_image_masks(sample["image"], sample["masks"], [0, 1])
     # profile_masks(reader, seq_id, frame_id)
     # profile_boxes(reader, seq_id, frame_id)
     # profile_depth(reader, seq_id, frame_id)
     # profile_scene(reader, seq_id, frame_id)
-    profile_clouds(reader, seq_id, frame_id)
+    # profile_clouds(reader, seq_id, frame_id)
 
 
 if __name__ == "__main__":
