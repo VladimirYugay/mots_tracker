@@ -42,8 +42,8 @@ class NewMOTSynthReader(object):
         resize_shape: tuple = None,
         depth_path: str = "gt_depth_new",
         egomotion_path: str = "egomotion",
-        keypoints_2d_path: str = "gt/keypoints_2d.txt",
-        keypoints_3d_path: str = "gt/keypoints_3d.txt",
+        keypoints_2d_path: str = None,
+        keypoints_3d_path: str = None,
         num_kpts=22,
         split_path: str = None,
     ):
