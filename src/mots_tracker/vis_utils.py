@@ -215,6 +215,21 @@ def plot_box_patch(axis, box, box_id=None):
     axis.text(*utils.compute_box_center(box), box_id, color=color)
 
 
+def plot_mask_patch(axis, mask, mask_id=None):
+    """Adds box patch to an axis
+    Args:
+        axis (Axis): matplotlib axis
+        mask (ndarray): boolean segmentation mask
+        box_id (int): id of the segmentation mask box
+    """
+    if mask_id is None:
+        mask_id = 0
+    color = M_COLORS[int(mask_id) % len(M_COLORS)]
+    x, y = np.nonzero(mask)
+    axis.scatter(y, x, color=color, marker=",")
+    axis.text(*utils.compute_mask_center(mask), mask_id)
+
+
 def play_clouds_movement(list_of_pcds: []):
     """Plays movement of pedestrain point clouds
     Args:
@@ -362,7 +377,7 @@ def depth2gif(depth_path: str, output_path: str) -> None:
     print("Saved gif to:", gif_name)
 
 
-def colorize_clouds(clouds: list) -> list:
+def colorize_clouds(clouds: list, cloud_ids: list) -> list:
     """Colorizes point clouds
     Args:
         clouds: point clouds to colorize
@@ -370,4 +385,5 @@ def colorize_clouds(clouds: list) -> list:
         colorized_clouds: painted point clouds
     """
     for i, cloud in enumerate(clouds):
-        cloud.paint_uniform_color(COLORS[i])
+        color = COLORS[cloud_ids[i] % len(COLORS)] if cloud_ids else COLORS[i]
+        cloud.paint_uniform_color(color)
