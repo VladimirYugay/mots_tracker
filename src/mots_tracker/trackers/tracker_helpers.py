@@ -38,8 +38,8 @@ def iou3d_matrix(detections, trackers, mixed=False):
     n, m = detections.shape[0], trackers.shape[0]
     iou_matrix = np.zeros((n, m))
     for i, det in enumerate(detections):
+        det_box = convert_3dbox_to_8corner(det)
         for j, track in enumerate(trackers):
-            det_box = convert_3dbox_to_8corner(det)
             track_box = convert_3dbox_to_8corner(track)
             iou3d_m, _ = iou3d(det_box, track_box)
             iou_matrix[i][j] = iou3d_m

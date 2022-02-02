@@ -117,6 +117,19 @@ def iou3d(corners1, corners2):
     return iou, iou_2d
 
 
+def rect_intersection(rect1, rect2):
+    """ Computes intersection between two rectangles in 2D """
+    dx = min(rect1[:, 0].max(), rect2[:, 0].max()) - max(
+        rect1[:, 0].min(), rect2[:, 0].min()
+    )
+    dy = min(rect1[:, 1].max(), rect2[:, 1].max()) - max(
+        rect1[:, 1].min(), rect2[:, 1].min()
+    )
+    if dx >= 0 and dy >= 0:
+        return dx * dy
+    return 0
+
+
 def iou2d(corners1, corners2):
     """Compute 3D bounding box IoU, only working for object parallel to ground
     Input:
@@ -127,14 +140,13 @@ def iou2d(corners1, corners2):
     """
     # take the facing surfaces top left bottom right format
     # pixel image coordinate system
-    rows, cols = np.array([0, 1, 2, 3]), np.array([0, 1])
+    rows, cols = np.array([0, 1, 3, 2]), np.array([0, 1])
     face_rect1 = corners1[rows, :][:, cols]
     face_rect2 = corners2[rows, :][:, cols]
-    # print(face_rect1[:, 0], face_rect1[:, 1])
     area1 = poly_area(face_rect1[:, 0], face_rect1[:, 1])
     area2 = poly_area(face_rect2[:, 0], face_rect2[:, 1])
-    # print(area1, area2, "AXAXA")
     _, inter_area = convex_hull_intersection(face_rect1, face_rect2)
+    inter_area = rect_intersection(face_rect1, face_rect2)
     iou_2d = inter_area / (area1 + area2 - inter_area + np.finfo(float).eps)
     return iou_2d
 
@@ -156,17 +168,9 @@ def convert_3dbox_to_8corner(bbox3d_input):
     """
     # compute rotational matrix around yaw axis
     bbox3d = bbox3d_input.copy()
-    R = np.eye(3)
     dx, dy, dz = bbox3d[3:6]
-    x_corners = np.array(
-        [dx / 2, dx / 2, -dx / 2, -dx / 2, dx / 2, dx / 2, -dx / 2, -dx / 2]
-    )
-    y_corners = np.array(
-        [dy / 2, -dy / 2, dy / 2, -dy / 2, dy / 2, -dy / 2, dy / 2, -dy / 2]
-    )
-    z_corners = np.array(
-        [-dz / 2, -dz / 2, -dz / 2, -dz / 2, dz / 2, dz / 2, dz / 2, dz / 2]
-    )
-    corners_3d = np.dot(R, np.vstack((x_corners, y_corners, z_corners)))
-    corners_3d += bbox3d[:3, None]
+    x_corners = np.array([dx, dx, -dx, -dx, dx, dx, -dx, -dx]) * 0.5
+    y_corners = np.array([dy, -dy, dy, -dy, dy, -dy, dy, -dy]) * 0.5
+    z_corners = np.array([-dz, -dz, -dz, -dz, dz, dz, dz, dz]) * 0.5
+    corners_3d = np.vstack((x_corners, y_corners, z_corners)) + bbox3d[:3, None]
     return corners_3d.T
