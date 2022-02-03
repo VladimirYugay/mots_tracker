@@ -176,6 +176,21 @@ def plot_3d_keypoints(keypoints, keypoint_ids=None):
     plt.show()
 
 
+def plot_3d_keypoints_o3d(keypoints, keypoint_ids=None, scene=None):
+    kpt_clouds = []
+    print(keypoints.shape)
+    for i, kpt in enumerate(keypoints):
+        kpt_cloud = utils.numpy2o3d(kpt)
+        color = COLORS[i]
+        if keypoint_ids is not None:
+            color = COLORS[keypoint_ids[i]]
+        kpt_cloud.paint_uniform_color(color)
+        kpt_clouds.append(kpt_cloud)
+    if scene is not None:
+        kpt_clouds.append(scene)
+    plot_ptcloud(kpt_clouds)
+
+
 def plot_ptcloud(point_clouds, show_frame=True):
     """visualizes point cloud
     Args:

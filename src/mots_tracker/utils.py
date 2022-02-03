@@ -346,3 +346,17 @@ def interpolate_depth(depth: np.ndarray, size: tuple) -> np.ndarray:
         upscaled image
     """
     return cv2.resize(depth, dsize=size, interpolation=cv2.INTER_LANCZOS4)
+
+
+def numpy2o3d(array: np.ndarray) -> o3d.geometry.PointCloud:
+    """Converts numpy array to a 3d point cloud
+
+    Args:
+        array: array to convert
+
+    Returns:
+        o3d.geometry.PointCloud: resulting point cloud
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(array)
+    return pcd
