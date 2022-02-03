@@ -4,6 +4,7 @@ import json
 import pickle
 from argparse import Namespace
 from configparser import ConfigParser
+from pathlib import Path
 
 import numpy as np
 
@@ -14,14 +15,20 @@ DEFAULT_INTRINSICS = np.array(
 )
 
 INTRINSICS = {
-    "MOTS20-02": DEFAULT_INTRINSICS,  # gt unknown
-    "MOTS20-05": np.array([[501.167, 0, 307.514], [0, 501.049, 229.744], [0, 0, 1]]),
-    "MOTS20-09": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
-    "MOTS20-11": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
-    "MOTS20-01": DEFAULT_INTRINSICS,  # gt unknown
-    "MOTS20-06": np.array([[499.759, 0, 307.488], [0, 500.335, 230.462], [0, 0, 1]]),
-    "MOTS20-07": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
-    "MOTS20-12": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOT16-01": DEFAULT_INTRINSICS,
+    "MOT16-02": DEFAULT_INTRINSICS,
+    "MOT16-03": DEFAULT_INTRINSICS,
+    "MOT16-04": DEFAULT_INTRINSICS,
+    "MOT16-05": np.array([[501.167, 0, 307.514], [0, 501.049, 229.744], [0, 0, 1]]),
+    "MOT16-06": np.array([[499.759, 0, 307.488], [0, 500.335, 230.462], [0, 0, 1]]),
+    "MOT16-07": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOT16-08": DEFAULT_INTRINSICS,
+    "MOT16-09": DEFAULT_INTRINSICS,
+    "MOT16-10": DEFAULT_INTRINSICS,
+    "MOT16-11": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOT16-12": np.array([[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]),
+    "MOT16-13": DEFAULT_INTRINSICS,
+    "MOT16-14": DEFAULT_INTRINSICS,
 }
 
 
@@ -36,7 +43,7 @@ class MOT16Reader(object):
         panoptic_path: str = None,
         segmentation_path: str = None,
         annotations_path: str = None,
-        categories_json_path: str = None,
+        catgoery2class_json_path: str = None,
         metadata_path: str = None,
         seq_ids: tuple = ("MOT16-03", "MOT16-01"),
     ):
@@ -50,13 +57,13 @@ class MOT16Reader(object):
             segmentation_path (str, optional): path to segmentation masks
             annotations_path (str, optional): path to annotations files
         """
-        self.root_path = root_path
+        self.root_path = Path(root_path)
         self.depth_path = depth_path
         self.dets_path = dets_path
-        self.panoptic_path = panoptic_path
+        self.panoptic_path = Path(panoptic_path)
         self.segmentation_path = segmentation_path
         self.annotations_path = annotations_path
-        self.categories_json_path = categories_json_path
+        self.catgoery2class_json_path = catgoery2class_json_path
         self.metadata_path = metadata_path
         self.seq_ids = seq_ids
 
@@ -71,7 +78,7 @@ class MOT16Reader(object):
         self._init_color_ids()
         self._init_category2class()
         self._init_metadata()
-        self._init_color2coco()
+        # self._init_color2coco()
         self._init_category_colors()
 
     def _init_color_ids(self, step=1000000):
@@ -81,13 +88,14 @@ class MOT16Reader(object):
 
     def _init_category2class(self):
         """ Initializes class to category mapping """
-        with open(self.categories_json_path) as json_file:
+        with open(self.catgoery2class_json_path) as json_file:
             self.classes2category = json.load(json_file)
 
     def _init_metadata(self):
         """ Intializes metadata on the panoptic classes """
         with open(self.metadata_path, "rb") as pkl_file:
             self.meta_data = Namespace(**pickle.load(pkl_file))
+        print(type(self.meta_data))
 
     def _init_color2coco(self):
         """ Initializes mapping of color to coco """
@@ -108,13 +116,7 @@ class MOT16Reader(object):
         self.category_colors = {
             "sky": np.array([70, 130, 180]),
             "pedestrian": np.array([255, 0, 0]),
-            "other": np.array(
-                [
-                    255,
-                    215,
-                    0,
-                ]
-            ),
+            "other": np.array([255, 215, 0]),
             "occluder_moving": np.array([0, 100, 100]),
             "occluder_static": np.array([0, 0, 230]),
             "building": np.array([0, 255, 0]),
@@ -127,18 +129,17 @@ class MOT16Reader(object):
         sequence_info = {seq_id: {} for seq_id in self.seq_ids}
         for seq_id in self.seq_ids:
             parser = ConfigParser()
-            config_path = self.data_path / "img1" / seq_id / "seqinfo.ini"
-            imgs_path = self.data_path / "img1" / seq_id / "img1"
+            config_path = self.root_path / "img1" / seq_id / "seqinfo.ini"
+            imgs_path = self.root_path / "img1" / seq_id / "img1"
             parser.read(config_path)
             sequence_info[seq_id] = {
                 "length": int(parser["Sequence"]["seqLength"]),
                 "img_width": int(parser["Sequence"]["imWidth"]),
                 "img_height": int(parser["Sequence"]["imHeight"]),
-                "img_paths": sorted(
-                    [path.parts[-1] for path in imgs_path.glob("*.jpg")]
-                ),
+                "img_paths": sorted(imgs_path.glob("*.jpg")),
                 "intrinsics": INTRINSICS[seq_id],
             }
+        print(sequence_info.keys())
         self.sequence_info = sequence_info
 
     @property
@@ -176,10 +177,10 @@ class MOT16Reader(object):
         return panoptic_img, panoptic_mask
 
     def read_sample(self, seq_id, frame_id):
-        img_path = self.sequence_info[seq_id]["img_names"][frame_id]
+        img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
         image = utils.load_image(img_path)
         panoptic_image, panoptic_mask = self.read_panoptic_img(
-            str(self.panoptic_path / seq_id / img_path.parts[-1])
+            str(self.panoptic_path / seq_id / str(img_path.parts[-1]).replace(".jpg", ".png"))
         )
         return {
             "image": image,

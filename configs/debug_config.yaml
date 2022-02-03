@@ -13,18 +13,31 @@ cores: 1
 #    egomotion_path: "egomotion"
 #    split_path: "debug_split/test.txt"
 
+# reader:
+#   type: MOTSReader
+#   args:
+#     data_path: "/home/vy/university/thesis/datasets/MOTS"
+#     ann_path: "/home/vy/university/thesis/datasets/MOTS_annotations"
+#     boxes_path: "gt/gt_bb.txt"
+#     masks_path: "gt/gt.txt"
+#     resize_shape: null
+#     depth_path: "adabins_mots_best.pt"
+#     egomotion_path: null
+#     mode: "train"
+#     conf_thres: -1
 reader:
-  type: MOTSReader
+  type: MOT16Reader
   args:
-    data_path: "/home/vy/university/thesis/datasets/MOTS"
-    ann_path: "/home/vy/university/thesis/datasets/MOTS_annotations"
-    boxes_path: "gt/gt_bb.txt"
-    masks_path: "gt/gt.txt"
-    resize_shape: null
-    depth_path: "adabins_mots_best.pt"
-    egomotion_path: null
-    mode: "train"
-    conf_thres: -1
+    root_path: "/usr/stud/yugay/MOT16"
+    depth_path: None
+    dets_path: None
+    panoptic_path: "/usr/stud/yugay/MOT16/panoptic"
+    segmentation_path: None
+    annotations_path: None
+    catgoery2class_json_path: "/usr/stud/yugay/MOT16_helper_code/classes2category.json"
+    metadata_path: "/usr/stud/yugay/MOT16_helper_code/metaDataClasses.pkl"
+    seq_ids: ["MOT16-03", "MOT16-01"]
+
 
 tracker:
   type: BBox3dTracker
