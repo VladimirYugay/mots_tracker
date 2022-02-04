@@ -46,6 +46,8 @@ class MOT16Reader(object):
         catgoery2class_json_path: str = None,
         metadata_path: str = None,
         seq_ids: tuple = ("MOT16-03", "MOT16-01"),
+        exclude_cats: list = [],
+        include_cats: list = [],
     ):
         """Constructor arguments
 
@@ -66,19 +68,21 @@ class MOT16Reader(object):
         self.catgoery2class_json_path = catgoery2class_json_path
         self.metadata_path = metadata_path
         self.seq_ids = seq_ids
+        self.include_cats = include_cats
+        self.exclude_cats = exclude_cats
 
         self.color_ids = []
         self.category2class = {}
-        self.metadata = None
+        self.meta_data = None
         self.color2coco = {}
         self.category_colors = {}
         self.sequence_info = {}
 
+        self._init_metadata()
         self._init_sequence_info()
         self._init_color_ids()
         self._init_category2class()
-        self._init_metadata()
-        # self._init_color2coco()
+        self._init_color2coco()
         self._init_category_colors()
 
     def _init_color_ids(self, step=1000000):
@@ -92,24 +96,23 @@ class MOT16Reader(object):
             self.classes2category = json.load(json_file)
 
     def _init_metadata(self):
-        """ Intializes metadata on the panoptic classes """
+        """ Intializes meta_data on the panoptic classes """
         with open(self.metadata_path, "rb") as pkl_file:
             self.meta_data = Namespace(**pickle.load(pkl_file))
-        print(type(self.meta_data))
 
     def _init_color2coco(self):
         """ Initializes mapping of color to coco """
         self.color_to_coco = {}
         for stuff_class, stuff_color in zip(
-            self.metadata.stuff_classes, self.metadata.stuff_colors
+            self.meta_data.stuff_classes, self.meta_data.stuff_colors
         ):
             color = " ".join(str(e) for e in stuff_color)
-            self.statement[color] = stuff_class
+            self.color2coco[color] = stuff_class
         for thing_class, thing_color in zip(
-            self.metadata.thing_classes, self.metadata.thing_colors
+            self.meta_data.thing_classes, self.meta_data.thing_colors
         ):
             color = " ".join(str(e) for e in thing_color)
-            self.color_to_coco[color] = thing_class
+            self.color2coco[color] = thing_class
 
     def _init_category_colors(self):
         """ Initializes category colors dict """
@@ -139,7 +142,6 @@ class MOT16Reader(object):
                 "img_paths": sorted(imgs_path.glob("*.jpg")),
                 "intrinsics": INTRINSICS[seq_id],
             }
-        print(sequence_info.keys())
         self.sequence_info = sequence_info
 
     @property
@@ -180,7 +182,13 @@ class MOT16Reader(object):
         img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
         image = utils.load_image(img_path)
         panoptic_image, panoptic_mask = self.read_panoptic_img(
-            str(self.panoptic_path / seq_id / str(img_path.parts[-1]).replace(".jpg", ".png"))
+            str(
+                self.panoptic_path
+                / seq_id
+                / str(img_path.parts[-1]).replace(".jpg", ".png")
+            ),
+            self.exclude_cats,
+            self.include_cats,
         )
         return {
             "image": image,
