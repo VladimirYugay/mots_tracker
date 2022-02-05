@@ -155,9 +155,12 @@ def mask_out(img, masks):
     return img
 
 
-def load_image(img_file):
-    """Load image from disk. Output value range: [0,1]."""
-    return Image.open(img_file).convert("RGB")
+def load_image(img_file, as_numpy=False):
+    """Load image from disk. Output value range: [0,255]."""
+    img = Image.open(img_file).convert("RGB")
+    if as_numpy:
+        img = np.array(img)
+    return img
 
 
 def rgbd2ptcloud(img, depth, intrinsics, filter_func=None):
@@ -360,3 +363,15 @@ def numpy2o3d(array: np.ndarray) -> o3d.geometry.PointCloud:
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(array)
     return pcd
+
+
+def mask2bb(mask: np.ndarray) -> np.ndarray:
+    """Converts mask array to bounding box
+    Args:
+        mask: binary segmentation mask
+
+    Returns:
+        bounding box in top-left bottom-right format
+    """
+    row, col = np.where(mask != 0)
+    return np.array([min(row), min(col), max(row), max(col)])

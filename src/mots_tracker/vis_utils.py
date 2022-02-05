@@ -180,7 +180,8 @@ def plot_3d_keypoints_o3d(keypoints, keypoint_ids=None, scene=None):
     kpt_clouds = []
     print(keypoints.shape)
     for i, kpt in enumerate(keypoints):
-        kpt_cloud = utils.numpy2o3d(kpt)
+        kpt = kpt / 0.88
+        kpt_cloud = utils.numpy2o3d(kpt[:, :3])
         color = COLORS[i]
         if keypoint_ids is not None:
             color = COLORS[keypoint_ids[i]]

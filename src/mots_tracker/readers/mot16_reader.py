@@ -41,7 +41,7 @@ class MOT16Reader(object):
         depth_path: str = None,
         dets_path: str = None,
         panoptic_path: str = None,
-        segmentation_path: str = None,
+        instance_segmentation_path: str = None,
         annotations_path: str = None,
         catgoery2class_json_path: str = None,
         metadata_path: str = None,
@@ -56,14 +56,14 @@ class MOT16Reader(object):
             depth_path (str, optional): path to the depth maps
             dets_path (str, optional): path to the detections
             panoptic_path (str, optional): path to the panoptic segmentation
-            segmentation_path (str, optional): path to segmentation masks
+            instance_segmentation_path (str, optional): path to segmentation masks
             annotations_path (str, optional): path to annotations files
         """
         self.root_path = Path(root_path)
-        self.depth_path = depth_path
+        self.depth_path = Path(depth_path)
         self.dets_path = dets_path
         self.panoptic_path = Path(panoptic_path)
-        self.segmentation_path = segmentation_path
+        self.instance_segmentation_path = Path(instance_segmentation_path)
         self.annotations_path = annotations_path
         self.catgoery2class_json_path = catgoery2class_json_path
         self.metadata_path = metadata_path
@@ -178,20 +178,57 @@ class MOT16Reader(object):
             panoptic_mask[color_indices] = self.categories.index(category)
         return panoptic_img, panoptic_mask
 
+    def _read_human_instance_segmentation(self, img_filename: str) -> np.ndarray:
+        """Reads human instance segmentation image
+
+        Args:
+            img_filename: path to .png image filename
+        Returns:
+            masks: mask array of shape NxHxWxP
+        """
+        img = utils.load_image(img_filename, as_numpy=True)
+        from mots_tracker import vis_utils
+
+        vis_utils.plot_image(img)
+        colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
+        masks = np.zeros((colors.shape[0], img.shape[0], img.shape[1]))
+        for i, color in enumerate(colors):
+            if np.all(color == 0):  # ignore background color
+                continue
+            ped_mask = np.all(img == color, axis=-1)
+            masks[i, ...] = ped_mask
+        return masks
+
     def read_sample(self, seq_id, frame_id):
         img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
-        image = utils.load_image(img_path)
-        panoptic_image, panoptic_mask = self.read_panoptic_img(
-            str(
-                self.panoptic_path
-                / seq_id
-                / str(img_path.parts[-1]).replace(".jpg", ".png")
-            ),
-            self.exclude_cats,
-            self.include_cats,
+        image = utils.load_image(img_path, as_numpy=True)
+        panoptic_path = str(
+            self.panoptic_path
+            / seq_id
+            / str(img_path.parts[-1]).replace(".jpg", ".png")
         )
+        panoptic_image, panoptic_mask = self.read_panoptic_img(
+            panoptic_path, self.exclude_cats, self.include_cats
+        )
+        depth_path = str(
+            self.depth_path / seq_id / str(img_path.parts[-1]).replace(".jpg", ".npy")
+        )
+        depth = np.load(depth_path)
+
+        instance_path = str(
+            self.instance_segmentation_path
+            / seq_id
+            / str(img_path.parts[-1]).replace(".jpg", ".png")
+        )
+        instance_masks = self._read_human_instance_segmentation(instance_path)
+
+        intrinscs = INTRINSICS[seq_id].copy()
+
         return {
             "image": image,
+            "depth": depth,
             "panoptic_image": panoptic_image,
             "panoptic_mask": panoptic_mask,
+            "intrinsics": intrinscs,
+            "instance_masks": instance_masks,
         }
