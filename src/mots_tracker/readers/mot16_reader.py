@@ -45,6 +45,7 @@ class MOT16Reader(object):
         annotations_path: str = None,
         catgoery2class_json_path: str = None,
         metadata_path: str = None,
+        correspondece_path: str = None,
         seq_ids: tuple = ("MOT16-03", "MOT16-01"),
         exclude_cats: list = [],
         include_cats: list = [],
@@ -70,6 +71,7 @@ class MOT16Reader(object):
         self.seq_ids = seq_ids
         self.include_cats = include_cats
         self.exclude_cats = exclude_cats
+        self.correspondece_path = correspondece_path
 
         self.color_ids = []
         self.category2class = {}
@@ -187,9 +189,6 @@ class MOT16Reader(object):
             masks: mask array of shape NxHxWxP
         """
         img = utils.load_image(img_filename, as_numpy=True)
-        from mots_tracker import vis_utils
-
-        vis_utils.plot_image(img)
         colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
         masks = np.zeros((colors.shape[0], img.shape[0], img.shape[1]))
         for i, color in enumerate(colors):
@@ -199,8 +198,45 @@ class MOT16Reader(object):
             masks[i, ...] = ped_mask
         return masks
 
+    def _read_nbb_pts(self, seq_id: str, frame_id: int) -> tuple:
+        """Reads correspondences between current frame and the next frame
+        Args:
+            seq_id: sequence id
+            frame_id: frame id
+        Returns:
+            np.ndarray: [description]
+        """
+        if self.correspondece_path is None:
+            return None, None
+
+        crp_path = Path(self.correspondece_path) / seq_id
+
+        def read_crp_file(filename: str) -> np.ndarray:
+            file = open(filename, "r")
+            lines = file.readlines()
+            crp = np.zeros((len(lines), 2), dtype=np.float)
+            for i, line in enumerate(lines):
+                crp[i] = [int(num.strip()) for num in line.split(",")]
+            return crp
+
+        current = "correspondence_A{}_top_50.txt".format(frame_id)
+        next = current
+        if frame_id + 1 < self.sequence_info[seq_id]["length"]:
+            next = "correspondence_B{}_top_50.txt".format(frame_id + 1)
+        current = str(crp_path / current)
+        next = str(crp_path / next)
+        current, next = read_crp_file(current), read_crp_file(next)
+        height = self.sequence_info[seq_id]["img_height"]
+        width = self.sequence_info[seq_id]["img_width"]
+        current[:, 0] *= width / 224
+        current[:, 1] *= height / 224
+        next[:, 0] *= width / 224
+        next[:, 1] *= height / 224
+        return current.astype(np.int), next.astype(np.int)
+
     def read_sample(self, seq_id, frame_id):
         img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
+        file_id = str(img_path.parts[-1].split(".")[0])
         image = utils.load_image(img_path, as_numpy=True)
         panoptic_path = str(
             self.panoptic_path
@@ -210,17 +246,14 @@ class MOT16Reader(object):
         panoptic_image, panoptic_mask = self.read_panoptic_img(
             panoptic_path, self.exclude_cats, self.include_cats
         )
-        depth_path = str(
-            self.depth_path / seq_id / str(img_path.parts[-1]).replace(".jpg", ".npy")
-        )
+        depth_path = str(self.depth_path / seq_id / str(file_id + ".npy"))
         depth = np.load(depth_path)
 
         instance_path = str(
-            self.instance_segmentation_path
-            / seq_id
-            / str(img_path.parts[-1]).replace(".jpg", ".png")
+            self.instance_segmentation_path / seq_id / str(file_id + ".png")
         )
         instance_masks = self._read_human_instance_segmentation(instance_path)
+        current_crp, next_crp = self._read_nbb_pts(seq_id, frame_id)
 
         intrinscs = INTRINSICS[seq_id].copy()
 
@@ -231,4 +264,6 @@ class MOT16Reader(object):
             "panoptic_mask": panoptic_mask,
             "intrinsics": intrinscs,
             "instance_masks": instance_masks,
+            "current_correspondence": current_crp,
+            "next_correspondence": next_crp,
         }
