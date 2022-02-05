@@ -25,18 +25,23 @@ cores: 1
 #     egomotion_path: null
 #     mode: "train"
 #     conf_thres: -1
+
 reader:
   type: MOT16Reader
   args:
-    root_path: "/usr/stud/yugay/MOT16"
-    depth_path: None
+    root_path: "/home/vy/university/thesis/datasets/MOT16"
+    depth_path: "/home/vy/university/thesis/datasets/MOT16/depth_img"
     dets_path: None
-    panoptic_path: "/usr/stud/yugay/MOT16/panoptic"
-    segmentation_path: None
+    panoptic_path: "/home/vy/university/thesis/datasets/MOT16/panoptic"
+    instance_segmentation_path: "/home/vy/university/thesis/datasets/MOT16/segmentation"
     annotations_path: None
-    catgoery2class_json_path: "/usr/stud/yugay/MOT16_helper_code/classes2category.json"
-    metadata_path: "/usr/stud/yugay/MOT16_helper_code/metaDataClasses.pkl"
-    seq_ids: ["MOT16-03", "MOT16-01"]
+    correspondece_path: "/home/vy/university/thesis/datasets/MOT16/nbb"
+    catgoery2class_json_path: "/home/vy/university/thesis/datasets/MOT16/MOT16_helper_code/classes2category.json"
+    metadata_path: "/home/vy/university/thesis/datasets/MOT16/MOT16_helper_code/metaDataClasses.pkl"
+    # seq_ids: ["MOT16-01", "MOT16-03", "MOT16-14"]
+    seq_ids: ["MOT16-14"]
+    # include_cats: ["ground", "pavement", "road"]
+    exclude_cats: ["pedestrian"]
 
 
 tracker:
