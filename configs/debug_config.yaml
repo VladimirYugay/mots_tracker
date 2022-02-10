@@ -30,9 +30,9 @@ reader:
   type: MOT16Reader
   args:
     root_path: "/home/vy/university/thesis/datasets/MOT16"
-    # depth_path: "/home/vy/university/thesis/datasets/MOT16/depth_img"
-    dets_path: None
+    depth_path: "/home/vy/university/thesis/datasets/MOT16/depth_img"
     panoptic_path: "/home/vy/university/thesis/datasets/MOT16/panoptic"
+    optical_flow_path: "/home/vy/university/thesis/datasets/MOT16/optical_flow"
     # instance_segmentation_path: "/home/vy/university/thesis/datasets/MOT16/segmentation"
     annotations_path: None
     # correspondece_path: "/home/vy/university/thesis/datasets/MOT16/nbb"
@@ -40,8 +40,9 @@ reader:
     metadata_path: "/home/vy/university/thesis/datasets/MOT16/MOT16_helper_code/metaDataClasses.pkl"
     # seq_ids: ["MOT16-01", "MOT16-03", "MOT16-14"]
     seq_ids: ["MOT16-14"]
-    # include_cats: ["ground", "pavement", "road"]
-    exclude_cats: ["pedestrian"]
+    # include_cats: ["pedestrian", "sky", "occluder_moving"]
+    exclude_cats: ["pedestrian", "sky", "occluder_moving"]
+    # exclude_cats: ["pedestrian"]
 
 
 tracker:
