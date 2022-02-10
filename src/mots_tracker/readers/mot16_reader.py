@@ -6,6 +6,7 @@ from argparse import Namespace
 from configparser import ConfigParser
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from mots_tracker import utils
@@ -31,6 +32,30 @@ INTRINSICS = {
     "MOT16-14": DEFAULT_INTRINSICS,
 }
 
+DYNAMIC_SEQUENCES = {
+    "MOT16-01": False,
+    "MOT16-02": False,
+    "MOT16-03": False,
+    "MOT16-04": False,
+    "MOT16-05": True,
+    "MOT16-06": True,
+    "MOT16-07": True,
+    "MOT16-08": False,
+    "MOT16-09": False,
+    "MOT16-10": True,
+    "MOT16-11": True,
+    "MOT16-12": True,
+    "MOT16-13": True,
+    "MOT16-14": True,
+}
+
+TAG_FLOAT = 202021.25
+
+def assign_path(path: None):
+    if path is not None:
+        return Path(path)
+    return path
+
 
 class MOT16Reader(object):
     """ reader class """
@@ -46,9 +71,11 @@ class MOT16Reader(object):
         catgoery2class_json_path: str = None,
         metadata_path: str = None,
         correspondece_path: str = None,
+        optical_flow_path: str = None,
         seq_ids: tuple = ("MOT16-03", "MOT16-01"),
         exclude_cats: list = [],
         include_cats: list = [],
+        shape: list = [1080, 1920]
     ):
         """Constructor arguments
 
@@ -61,17 +88,19 @@ class MOT16Reader(object):
             annotations_path (str, optional): path to annotations files
         """
         self.root_path = Path(root_path)
-        self.depth_path = Path(depth_path)
+        self.depth_path = assign_path(depth_path)
         self.dets_path = dets_path
-        self.panoptic_path = Path(panoptic_path)
-        self.instance_segmentation_path = Path(instance_segmentation_path)
+        self.panoptic_path = panoptic_path
+        self.instance_segmentation_path = instance_segmentation_path
         self.annotations_path = annotations_path
         self.catgoery2class_json_path = catgoery2class_json_path
         self.metadata_path = metadata_path
         self.seq_ids = seq_ids
         self.include_cats = include_cats
         self.exclude_cats = exclude_cats
-        self.correspondece_path = correspondece_path
+        self.correspondece_path = assign_path(correspondece_path)
+        self.shape = shape
+        self.optical_flow_path = assign_path(optical_flow_path)
 
         self.color_ids = []
         self.category2class = {}
@@ -143,6 +172,7 @@ class MOT16Reader(object):
                 "img_height": int(parser["Sequence"]["imHeight"]),
                 "img_paths": sorted(imgs_path.glob("*.jpg")),
                 "intrinsics": INTRINSICS[seq_id],
+                "dynamic": DYNAMIC_SEQUENCES[seq_id]
             }
         self.sequence_info = sequence_info
 
@@ -150,16 +180,24 @@ class MOT16Reader(object):
     def categories(self):
         return list(self.category_colors.keys())
 
-    def read_panoptic_img(
-        self, img_filename: str, exclude_cats: list = [], include_cats: list = []
-    ):
-        """Reads panoptic image
+    def read_panoptic_img(self, seq_id, frame_id):
+        """ Reads depth map file
         Args:
-            img_filename (str): path to the panoptic image
-            exclude_cats (list, optional): categories to exclude
-            include_cats (list, optional): categories to include
+            seq_id: sequence ud
+            frame_id: frame id
+        Returns:
+            np.ndarray: float depth map
         """
-        img = utils.load_image(img_filename)
+        if self.panoptic_path is None:
+            return None, None
+
+        img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
+        panoptic_path = str(
+            Path(self.panoptic_path)
+            / seq_id
+            / str(img_path.parts[-1]).replace(".jpg", ".png")
+        )        
+        img = utils.load_image(panoptic_path)
         img = np.array(img)
         colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
         panoptic_img = np.zeros_like(img)
@@ -170,9 +208,9 @@ class MOT16Reader(object):
             if coco_class is None:
                 continue
             category = self.classes2category[coco_class]
-            if include_cats and category not in include_cats:
+            if self.include_cats and category not in self.include_cats:
                 continue
-            if exclude_cats and category in exclude_cats:
+            if self.exclude_cats and category in self.exclude_cats:
                 continue
             final_color = self.category_colors[category]
             color_indices = np.where(np.all(img == color, axis=-1))
@@ -180,15 +218,25 @@ class MOT16Reader(object):
             panoptic_mask[color_indices] = self.categories.index(category)
         return panoptic_img, panoptic_mask
 
-    def _read_human_instance_segmentation(self, img_filename: str) -> np.ndarray:
-        """Reads human instance segmentation image
-
+    def _read_human_instance_segmentation(self, seq_id: str, frame_id: int) -> np.ndarray:
+        """ Reads instance segmentation masks
         Args:
-            img_filename: path to .png image filename
+            seq_id: sequence ud
+            frame_id: frame id
         Returns:
-            masks: mask array of shape NxHxWxP
+            np.ndarray: float depth map
         """
-        img = utils.load_image(img_filename, as_numpy=True)
+        if self.instance_segmentation_path is None:
+            return None
+
+        img_path = self.sequence_info[seq_id]["img_paths"][frame_id]    
+        file_id = str(img_path.parts[-1].split(".")[0])            
+        instance_path = str(
+            self.instance_segmentation_path / seq_id / str(file_id + ".png")
+        )
+        img = utils.load_image(instance_path, as_numpy=True)
+        img = utils.resize_img(img, self.shape)
+        img = np.array(img)
         colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
         masks = np.zeros((colors.shape[0], img.shape[0], img.shape[1]))
         for i, color in enumerate(colors):
@@ -234,28 +282,83 @@ class MOT16Reader(object):
         next[:, 1] *= height / 224
         return current.astype(np.int), next.astype(np.int)
 
-    def read_sample(self, seq_id, frame_id):
+    def _read_depth(self, seq_id, frame_id) -> np.ndarray:
+        """ Reads depth map file
+        Args:
+            seq_id: sequence ud
+            frame_id: frame id
+        Returns:
+            np.ndarray: float depth map
+        """
+        if self.depth_path is None:
+            return None
         img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
-        file_id = str(img_path.parts[-1].split(".")[0])
-        image = utils.load_image(img_path, as_numpy=True)
-        panoptic_path = str(
-            self.panoptic_path
-            / seq_id
-            / str(img_path.parts[-1]).replace(".jpg", ".png")
-        )
-        panoptic_image, panoptic_mask = self.read_panoptic_img(
-            panoptic_path, self.exclude_cats, self.include_cats
-        )
-        depth_path = str(self.depth_path / seq_id / str(file_id + ".npy"))
+        file_id = str(img_path.parts[-1].split(".")[0])            
+        depth_path = str(self.depth_path / seq_id / str(file_id + ".npy"))            
         depth = np.load(depth_path)
+        depth = cv2.resize(depth, ) 
+        return np.load(depth_path)
 
-        instance_path = str(
-            self.instance_segmentation_path / seq_id / str(file_id + ".png")
-        )
-        instance_masks = self._read_human_instance_segmentation(instance_path)
+    def _read_rgb(self, seq_id, frame_id) -> np.ndarray:
+        """ Reads RGB image
+        Args:
+            seq_id: sequence ud
+            frame_id: frame id
+        Returns:
+            np.ndarray: float depth map
+        """
+        # RGB path should always be present
+        img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
+        image = utils.load_image(img_path, as_numpy=True)
+        image = cv2.resize(image, dsize=self.shape, interpolation=cv2.INTER_CUBIC)
+        return image
+
+    def _read_optical_flow(self, seq_id, frame_id):
+        """Reads correspondences between current frame and the next frame
+        Args:
+            seq_id: sequence id
+            frame_id: frame id
+            shape: shape of the resulting optical flow array
+        Returns:
+            np.ndarray: optical flow between current and the next frame 
+        """
+        if self.optical_flow_path is None:
+            return None
+        
+        if frame_id == self.sequence_info[seq_id]["length"] - 1:
+            return None
+
+        if not self.sequence_info[seq_id]["dynamic"]:
+            return None
+
+        file_name = "{}_to_{}_flow.flo".format(frame_id, frame_id + 1)
+        file = open(str(self.optical_flow_path / seq_id / file_name), 'r')
+        assert np.fromfile(file, np.float32, count=1)[0] == TAG_FLOAT
+        width = np.fromfile(file, np.int32, count=1)[0]
+        height = np.fromfile(file, np.int32, count=1)[0]
+        data = np.fromfile(file, np.float32, count=2 * width * height)
+        print(data.shape, width, height, "AXAXA")
+        flow = np.resize(data, (int(height), int(width), 2))
+        file.close()
+        flow = cv2.resize(flow, dsize=list(reversed(self.shape)), interpolation=cv2.INTER_CUBIC)
+        return flow 
+
+    def read_sample(self, seq_id, frame_id):
+
+        image = self._read_rgb(seq_id, frame_id)
+        
+        panoptic_image, panoptic_mask = self.read_panoptic_img(seq_id, frame_id)        
+        
+        depth = self._read_depth(seq_id, frame_id)
+        
+        instance_masks = self._read_human_instance_segmentation(seq_id, frame_id)
+        
         current_crp, next_crp = self._read_nbb_pts(seq_id, frame_id)
 
         intrinscs = INTRINSICS[seq_id].copy()
+
+        # indexing for optical flow files starts from 1 
+        optical_flow = self._read_optical_flow(seq_id, frame_id + 1)
 
         return {
             "image": image,
@@ -266,4 +369,5 @@ class MOT16Reader(object):
             "instance_masks": instance_masks,
             "current_correspondence": current_crp,
             "next_correspondence": next_crp,
+            "optical_flow": optical_flow
         }
