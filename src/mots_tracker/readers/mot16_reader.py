@@ -338,7 +338,7 @@ class MOT16Reader(object):
         if not self.sequence_info[seq_id]["dynamic"]:
             return None
 
-        file_name = "{}_to_{}_flow.flo".format(frame_id, frame_id + 1)
+        file_name = "{}_to_{}_flow.flo".format(frame_id + 1, frame_id + 2)
         file = open(str(self.optical_flow_path / seq_id / file_name), "r")
         assert np.fromfile(file, np.float32, count=1)[0] == TAG_FLOAT
         width = np.fromfile(file, np.int32, count=1)[0]
@@ -366,7 +366,7 @@ class MOT16Reader(object):
         intrinscs = INTRINSICS[seq_id].copy()
 
         # indexing for optical flow files starts from 1
-        optical_flow = self._read_optical_flow(seq_id, frame_id + 1)
+        optical_flow = self._read_optical_flow(seq_id, frame_id)
 
         return {
             "image": image,
