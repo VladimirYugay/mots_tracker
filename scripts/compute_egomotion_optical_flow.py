@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
 
 from mots_tracker import readers, utils
 from mots_tracker.io_utils import get_instance, load_yaml
@@ -121,17 +122,17 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     vertical[vertical == 1e9] = vertical.min()
     # top dynamic flow pixels
     k = int(1e5)
-    k = int(1e3)
+    # k = int(1e3)
     rows, cols = get_topk_displacement_ids(horizontal, vertical, k)
     vdisp, hdisp = vertical[rows, cols], horizontal[rows, cols]
     scols, srows = (cols.copy(), rows.copy())
     tcols, trows = (cols.copy() + np.rint(hdisp), rows.copy() + np.rint(vdisp))
     tcols, trows = tcols.astype(np.int), trows.astype(np.int)
-    print("Before filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
+    # print("Before filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
     valid_pixels = (tcols < width) & (trows < height)
     scols, srows = scols[valid_pixels], srows[valid_pixels]
     tcols, trows = tcols[valid_pixels], trows[valid_pixels]
-    print("After filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
+    # print("After filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
 
     # vis_movement(source_sample["image"], scols, srows, tcols, trows)
 
@@ -145,9 +146,8 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     target_cloud = get_pt_cloud_from_pixels(target_sample, trows, tcols)
     source_cloud, target_cloud = prune_clouds(source_cloud, target_cloud)
 
-    print(source_cloud.shape, target_cloud.shape)
     transformation = rigid_transform_3D(source_cloud, target_cloud, False)
-    print(transformation)
+    return transformation
 
 
 @click.command()
@@ -178,10 +178,11 @@ def main(config_path, output_path):
 
         print("Processing", seq_id)
         filename = "{}_egomotion.npy".format(seq_id)
+        filename = str(output_path / filename)
         transformations = []
-        for frame_id in range(reader.sequence_info[seq_id]["length"] - 1):
+        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"] - 1)):
             source_sample = reader.read_sample(seq_id, frame_id)
-            target_sample = reader.read_sample(seq_id, frame_id)
+            target_sample = reader.read_sample(seq_id, frame_id + 1)
             egomotion = compute_egomotion(source_sample, target_sample)
             transformations.append(egomotion)
         transformations = np.array(transformations)
