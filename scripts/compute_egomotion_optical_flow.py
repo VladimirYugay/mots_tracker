@@ -5,9 +5,10 @@ from pathlib import Path
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+import open3d as o3d
 from tqdm import tqdm
 
-from mots_tracker import readers, utils
+from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.readers.mot16_reader import DYNAMIC_SEQUENCES
 
@@ -67,25 +68,33 @@ def prune_clouds(clouda, cloudb):
 
 
 def rigid_transform_3D(A, B, scale):
-    assert A.shape == B.shape
+    assert len(A) == len(B)
+
     N = A.shape[0]  # total points
+
     centroid_A = np.mean(A, axis=0)
     centroid_B = np.mean(B, axis=0)
+
+    # center the points
     AA = A - np.tile(centroid_A, (N, 1))
     BB = B - np.tile(centroid_B, (N, 1))
+
     # dot is matrix multiplication for array
     if scale:
         H = np.transpose(BB) * AA / N
     else:
-        # print(BB.T.shape, AA.shape)
-        # H = np.matmul(BB.T, AA)
         H = np.transpose(BB) * AA
+
     U, S, Vt = np.linalg.svd(H)
+
     R = Vt.T * U.T
+
     # special reflection case
     if np.linalg.det(R) < 0:
+
         Vt[2, :] *= -1
         R = Vt.T * U.T
+
     if scale:
         varA = np.var(A, axis=0).sum()
         c = 1 / (1 / varA * np.sum(S))  # scale factor
@@ -94,11 +103,62 @@ def rigid_transform_3D(A, B, scale):
         c = 1
         t = -R * centroid_B.T + centroid_A.T
     R = R * c
+
     transformation = np.zeros((4, 4))
     transformation[3, 3] = 1
     transformation[:3, :3] = R
     transformation[:3, 3] = t.T
     return transformation
+
+
+def verify_ptcd_order(sample):
+    # cloud = utils.rgbd2ptcloud(
+    #     sample["image"], sample["depth"], sample["intrinsics"])
+    height, width, _ = sample["image"].shape
+    img = sample["image"].copy()
+    img[:5, ...] = [0, 255, 0]
+    # vis_utils.plot_image(img)
+    cloud = utils.rgbd2ptcloud(img, sample["depth"], sample["intrinsics"])
+    # vis_utils.plot_ptcloud(cloud)
+    colors = np.asarray(cloud.colors)
+    assert np.all(
+        colors[
+            : 5 * width,
+        ]
+        == [0.0, 1.0, 0.0]
+    )
+
+    img = sample["image"].copy()
+    img[100:150, ...] = [0, 255, 0]
+    # vis_utils.plot_image(img)
+    cloud = utils.rgbd2ptcloud(img, sample["depth"], sample["intrinsics"])
+    # vis_utils.plot_ptcloud(cloud)
+    colors = np.asarray(cloud.colors)
+    assert np.all(
+        colors[
+            100 * width : 100 * width + 50,
+        ]
+        == [0.0, 1.0, 0.0]
+    )
+
+    img = sample["image"].copy()
+    img[100:150, 350:400, :] = [0, 255, 0]
+    # vis_utils.plot_image(img)
+    cloud = utils.rgbd2ptcloud(img, sample["depth"], sample["intrinsics"])
+    # vis_utils.plot_ptcloud(cloud)
+    colors = np.asarray(cloud.colors)
+    assert np.all(
+        colors[
+            width * 100 + 350 : width * 100 + 400,
+        ]
+        == [0.0, 1.0, 0.0]
+    )
+
+
+def vis_points(pts):
+    cloud = o3d.geometry.PointCloud()
+    cloud.points = o3d.utility.Vector3dVector(pts)
+    vis_utils.plot_ptcloud(cloud)
 
 
 def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
@@ -110,43 +170,65 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     Returns:
         np.ndarray: 4x4 transformation matrix
     """
+
+    # verify_ptcd_order(source_sample)
+
     height, width, _ = source_sample["image"].shape
     flow = source_sample["optical_flow"]
-    horizontal, vertical = flow[..., 0], flow[..., 1]
-    panoptic = source_sample["panoptic_mask"]
-    # exclude dynamic objects optical flow pixels and unknown flow values
+    hflow, vflow = flow[..., 0], flow[..., 1]
 
-    horizontal[panoptic == 0] = horizontal.min()
-    horizontal[horizontal == 1e9] = horizontal.min()
-    vertical[panoptic == 0] = vertical.min()
-    vertical[vertical == 1e9] = vertical.min()
-    # top dynamic flow pixels
-    k = int(1e5)
-    # k = int(1e3)
-    rows, cols = get_topk_displacement_ids(horizontal, vertical, k)
-    vdisp, hdisp = vertical[rows, cols], horizontal[rows, cols]
-    scols, srows = (cols.copy(), rows.copy())
-    tcols, trows = (cols.copy() + np.rint(hdisp), rows.copy() + np.rint(vdisp))
-    tcols, trows = tcols.astype(np.int), trows.astype(np.int)
-    # print("Before filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
+    spanoptic, tpanoptic = (
+        source_sample["panoptic_mask"],
+        target_sample["panoptic_mask"],
+    )
+
+    # filter invalid classes and unknown flow values
+    mask = np.ones((height, width), dtype=np.int8)
+    mask[np.logical_or(spanoptic == 0, tpanoptic == 0)] = 0
+    mask[np.logical_or(hflow == 1e9, vflow == 1e9)] = 0
+
+    # vis_utils.plot_image(mask)
+    # vis_utils.plot_image(spanoptic)
+    # vis_utils.plot_image(tpanoptic)
+
+    srows, scols = np.where(mask != 0)
+    hdisp, vdisp = hflow[srows, scols], vflow[srows, scols]
+    hdisp, vdisp = np.rint(hdisp).astype(np.int32), np.rint(vdisp).astype(np.int32)
+    trows, tcols = srows + vdisp, scols + hdisp
+
+    # keep the moved pixels
     valid_pixels = (tcols < width) & (trows < height)
-    scols, srows = scols[valid_pixels], srows[valid_pixels]
-    tcols, trows = tcols[valid_pixels], trows[valid_pixels]
-    # print("After filtering", scols.shape, srows.shape, tcols.shape, trows.shape)
+    srows, scols = srows[valid_pixels], scols[valid_pixels]
+    trows, tcols = trows[valid_pixels], tcols[valid_pixels]
 
-    # vis_movement(source_sample["image"], scols, srows, tcols, trows)
+    # we want to preserve the semantic class between the pixels
+    valid_cls = spanoptic[srows, scols] == tpanoptic[trows, tcols]
+    srows, scols = srows[valid_cls], scols[valid_cls]
+    trows, tcols = trows[valid_cls], tcols[valid_cls]
 
-    # vis_correspondences(
-    #     source_sample["image"],
-    #     target_sample["image"],
-    #     (scols, srows),
-    #     (tcols, trows))
+    source_cloud = utils.rgbd2ptcloud(
+        source_sample["image"], source_sample["depth"], source_sample["intrinsics"]
+    )
+    target_cloud = utils.rgbd2ptcloud(
+        target_sample["image"], target_sample["depth"], target_sample["intrinsics"]
+    )
+    source_cloud = np.asarray(source_cloud.points)
+    target_cloud = np.asarray(target_cloud.points)
 
-    source_cloud = get_pt_cloud_from_pixels(source_sample, srows, scols)
-    target_cloud = get_pt_cloud_from_pixels(target_sample, trows, tcols)
-    source_cloud, target_cloud = prune_clouds(source_cloud, target_cloud)
+    source_ids = srows * width + scols
+    target_ids = trows * width + tcols
+    source_pts = source_cloud[
+        source_ids,
+    ]
+    target_pts = target_cloud[
+        target_ids,
+    ]
+    # vis_points(source_pts)
+    # vis_points(target_pts)
 
-    transformation = rigid_transform_3D(source_cloud, target_cloud, False)
+    source_pts = np.asmatrix(source_pts)
+    target_pts = np.asmatrix(target_pts)
+    transformation = rigid_transform_3D(source_pts, target_pts, False)
     return transformation
 
 
