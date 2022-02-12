@@ -11,6 +11,9 @@ import numpy as np
 
 from mots_tracker import utils
 
+MIN_DEPTH = 0.1  # in meters 
+MAX_DEPTH = 100  # in meters
+
 DEFAULT_INTRINSICS = np.array(
     [[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]
 )
@@ -302,7 +305,8 @@ class MOT16Reader(object):
         depth = cv2.resize(
             depth, dsize=list(reversed(self.shape)), interpolation=cv2.INTER_CUBIC
         )
-        return np.load(depth_path)
+        depth = np.clip(depth, MIN_DEPTH, MAX_DEPTH)
+        return depth
 
     def _read_rgb(self, seq_id, frame_id) -> np.ndarray:
         """Reads RGB image
