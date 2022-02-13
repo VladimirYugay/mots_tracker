@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 import click
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
@@ -42,29 +43,6 @@ def vis_movement(img, scol, srow, tcol, trow):
     for sy, sx, ty, tx in zip(srow, scol, trow, tcol):
         plt.plot([sx, tx], [sy, ty], color="k")
     plt.show()
-
-
-def get_topk_displacement_ids(horizontal, vertical, k=100):
-    height, width = horizontal.shape
-    total_flow = horizontal + vertical
-    kth_largest = np.sort(total_flow.flatten())[-k]
-    return np.where(total_flow >= kth_largest)
-
-
-def get_pt_cloud_from_pixels(sample, rows, cols):
-    empty_img = np.zeros_like(sample["image"])
-    empty_depth = np.zeros_like(sample["depth"])
-    empty_img[rows, cols] = sample["image"][rows, cols]
-    empty_depth[rows, cols] = sample["depth"][rows, cols]
-    cloud = utils.rgbd2ptcloud(empty_img, empty_depth, sample["intrinsics"])
-    return np.asmatrix(cloud.points)
-
-
-def prune_clouds(clouda, cloudb):
-    num_a, _ = clouda.shape
-    num_b, _ = cloudb.shape
-    n = min(num_a, num_b)
-    return clouda[:n, :], cloudb[:n, :]
 
 
 def rigid_transform_3D(A, B, scale):
@@ -161,6 +139,15 @@ def vis_points(pts):
     vis_utils.plot_ptcloud(cloud)
 
 
+def get_gradient(depth, panoptic):
+    depth = depth.copy()
+    depth[panoptic == 0] = 0
+    sobelx = cv2.Sobel(depth, cv2.CV_64F, 1, 0, ksize=5)
+    sobely = cv2.Sobel(depth, cv2.CV_64F, 0, 1, ksize=5)
+    gradient = abs(sobelx + sobely)
+    return gradient
+
+
 def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     """Compute egomotion between two consecutive frames
 
@@ -187,16 +174,27 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     mask[np.logical_or(spanoptic == 0, tpanoptic == 0)] = 0
     mask[np.logical_or(hflow == 1e9, vflow == 1e9)] = 0
 
-    # vis_utils.plot_image(mask)
-    # vis_utils.plot_image(spanoptic)
-    # vis_utils.plot_image(tpanoptic)
+    # filter too far depth regions
+    max_depth = 50
+    mask[
+        np.logical_or(
+            source_sample["depth"] > max_depth, target_sample["depth"] > max_depth
+        )
+    ] = 0
 
+    # filter based on stable gradient
+    grad_threshold = 8
+    sgradient = get_gradient(source_sample["depth"], spanoptic)
+    tgradient = get_gradient(target_sample["depth"], tpanoptic)
+    mask[np.logical_or(sgradient > grad_threshold, tgradient > grad_threshold)] = 0
+
+    # get the ids of interest
     srows, scols = np.where(mask != 0)
     hdisp, vdisp = hflow[srows, scols], vflow[srows, scols]
     hdisp, vdisp = np.rint(hdisp).astype(np.int32), np.rint(vdisp).astype(np.int32)
     trows, tcols = srows + vdisp, scols + hdisp
 
-    # keep the moved pixels
+    # remove the out of boundaries pixels
     valid_pixels = (tcols < width) & (trows < height)
     srows, scols = srows[valid_pixels], scols[valid_pixels]
     trows, tcols = trows[valid_pixels], tcols[valid_pixels]
@@ -212,19 +210,13 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     target_cloud = utils.rgbd2ptcloud(
         target_sample["image"], target_sample["depth"], target_sample["intrinsics"]
     )
-    source_cloud = np.asarray(source_cloud.points)
-    target_cloud = np.asarray(target_cloud.points)
+    source_cloud_pts = np.asarray(source_cloud.points)
+    target_cloud_pts = np.asarray(target_cloud.points)
 
     source_ids = srows * width + scols
     target_ids = trows * width + tcols
-    source_pts = source_cloud[
-        source_ids,
-    ]
-    target_pts = target_cloud[
-        target_ids,
-    ]
-    # vis_points(source_pts)
-    # vis_points(target_pts)
+    source_pts = source_cloud_pts[source_ids]
+    target_pts = target_cloud_pts[target_ids]
 
     source_pts = np.asmatrix(source_pts)
     target_pts = np.asmatrix(target_pts)
