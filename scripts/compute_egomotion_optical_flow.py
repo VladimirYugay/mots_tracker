@@ -139,9 +139,7 @@ def vis_points(pts):
     vis_utils.plot_ptcloud(cloud)
 
 
-def get_gradient(depth, panoptic):
-    depth = depth.copy()
-    depth[panoptic == 0] = 0
+def get_gradient(depth):
     sobelx = cv2.Sobel(depth, cv2.CV_64F, 1, 0, ksize=5)
     sobely = cv2.Sobel(depth, cv2.CV_64F, 0, 1, ksize=5)
     gradient = abs(sobelx + sobely)
@@ -183,9 +181,9 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     ] = 0
 
     # filter based on stable gradient
-    grad_threshold = 8
-    sgradient = get_gradient(source_sample["depth"], spanoptic)
-    tgradient = get_gradient(target_sample["depth"], tpanoptic)
+    grad_threshold = 30  # since lower kills too much rigid objects around
+    sgradient = get_gradient(source_sample["depth"])
+    tgradient = get_gradient(target_sample["depth"])
     mask[np.logical_or(sgradient > grad_threshold, tgradient > grad_threshold)] = 0
 
     # get the ids of interest
