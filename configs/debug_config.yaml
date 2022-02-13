@@ -41,7 +41,8 @@ reader:
     # seq_ids: ["MOT16-01", "MOT16-03", "MOT16-14"]
     seq_ids: ["MOT16-14"]
     # include_cats: ["pedestrian", "sky", "occluder_moving"]
-    exclude_cats: ["pedestrian", "sky", "occluder_moving"]
+    # exclude_cats: ["pedestrian", "sky", "occluder_moving"]
+    include_cats: ["road", "pavement", "ground"]
     # exclude_cats: ["pedestrian"]
 
 
