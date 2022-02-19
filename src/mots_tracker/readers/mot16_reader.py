@@ -11,7 +11,7 @@ import numpy as np
 
 from mots_tracker import utils
 
-MIN_DEPTH = 0.1  # in meters 
+MIN_DEPTH = 0.1  # in meters
 MAX_DEPTH = 100  # in meters
 
 DEFAULT_INTRINSICS = np.array(
@@ -273,10 +273,10 @@ class MOT16Reader(object):
                 crp[i] = [int(num.strip()) for num in line.split(",")]
             return crp
 
-        current = "correspondence_A{}_top_50.txt".format(frame_id)
+        current = "correspondence_A{}_top_1000.txt".format(frame_id)
         next = current
         if frame_id + 1 < self.sequence_info[seq_id]["length"]:
-            next = "correspondence_B{}_top_50.txt".format(frame_id + 1)
+            next = "correspondence_B{}_top_1000.txt".format(frame_id + 1)
         current = str(crp_path / current)
         next = str(crp_path / next)
         current, next = read_crp_file(current), read_crp_file(next)
