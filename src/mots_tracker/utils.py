@@ -375,3 +375,70 @@ def mask2bb(mask: np.ndarray) -> np.ndarray:
     """
     row, col = np.where(mask != 0)
     return np.array([min(row), min(col), max(row), max(col)])
+
+
+def compute_angle(u: np.ndarray, v: np.ndarray) -> float:
+    """Computes angle between two vectors
+
+    Args:
+        u: first vector
+        v: second vector
+
+    Returns:
+        angle between the vectors in radians
+    """
+    return np.arccos(np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v)))
+
+
+def rigid_transform_3D(A, B, scale) -> np.ndarray:
+    """Computes rigid transformation between two sets of points
+
+    Args:
+        A: source set of points
+        B: target set of points
+        scale: whether to vary scale or not
+    Returns:
+        rotation and translation in hom coordinates B -> A
+    """
+    assert len(A) == len(B)
+    _, d = A.shape
+
+    N = A.shape[0]  # total points
+
+    centroid_A = np.mean(A, axis=0)
+    centroid_B = np.mean(B, axis=0)
+
+    # center the points
+    AA = A - np.tile(centroid_A, (N, 1))
+    BB = B - np.tile(centroid_B, (N, 1))
+
+    # dot is matrix multiplication for array
+    if scale:
+        H = np.transpose(BB) * AA / N
+    else:
+        H = np.transpose(BB) * AA
+
+    U, S, Vt = np.linalg.svd(H)
+
+    R = Vt.T * U.T
+
+    # special reflection case
+    if np.linalg.det(R) < 0:
+
+        Vt[2, :] *= -1
+        R = Vt.T * U.T
+
+    if scale:
+        varA = np.var(A, axis=0).sum()
+        c = 1 / (1 / varA * np.sum(S))  # scale factor
+        t = -R * (centroid_B.T * c) + centroid_A.T
+    else:
+        c = 1
+        t = -R * centroid_B.T + centroid_A.T
+    R = R * c
+
+    transformation = np.zeros((d + 1, d + 1))
+    transformation[d, d] = 1
+    transformation[:d, :d] = R
+    transformation[:d, d] = t.T
+    return transformation
