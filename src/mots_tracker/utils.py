@@ -442,3 +442,17 @@ def rigid_transform_3D(A, B, scale) -> np.ndarray:
     transformation[:d, :d] = R
     transformation[:d, d] = t.T
     return transformation
+
+
+def compute_depth_gradient(depth: np.ndarray) -> np.ndarray:
+    """Computes gradient of a 2D depth map
+
+    Args:
+        depth: depth map
+    Returns:
+        sum of gradients along X and Y
+    """
+    sobelx = cv2.Sobel(depth, cv2.CV_64F, 1, 0, ksize=5)
+    sobely = cv2.Sobel(depth, cv2.CV_64F, 0, 1, ksize=5)
+    gradient = abs(sobelx + sobely)
+    return gradient

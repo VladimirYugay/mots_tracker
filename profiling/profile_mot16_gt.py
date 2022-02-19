@@ -297,8 +297,7 @@ def align_cloud_RANSAC(cloud):
     plane_model, inliers = cloud.segment_plane(
         distance_threshold=0.01, ransac_n=3, num_iterations=1000
     )
-    # inlier_cloud = cloud.select_down_sample(inliers)
-    # inlier_cloud.paint_uniform_color([1.0, 0, 0])
+    inlier_cloud = cloud.select_down_sample(inliers)
     a, b, c, d = plane_model
     plane_normal = np.array(plane_model[:3])
     xz_normal = np.array([0, 1, 0])
@@ -307,7 +306,10 @@ def align_cloud_RANSAC(cloud):
     if c > 0:  # plane looks up
         rotation_angle = -rotation_angle
     R = cloud.get_rotation_matrix_from_xyz(np.array([rotation_angle, 0, 0]))
-    return R
+    inlier_cloud.rotate(R)
+    shift_num = np.asanyarray(inlier_cloud.points)[:, 1].min()
+    t = np.array([0, -shift_num, 0])
+    return R, t
 
 
 # ax + by + cz + d = 0
@@ -321,46 +323,51 @@ def profile_floor_alignment(sample):
         sample["depth"].copy(),
         sample["panoptic_mask"].copy(),
     )
+    orig_cloud = utils.rgbd2ptcloud(img, depth, sample["intrinsics"])
+    transformed_cloud = deepcopy(orig_cloud)
+    transformed_cloud.paint_uniform_color([0, 1, 0])
 
     mask = np.ones_like(panoptic)
     mask[panoptic == 0] = 0
-    mask[depth > 50] = 0
+    mask[depth > 80] = 0
     mask[get_gradient(depth) > 30] = 0
 
     img[mask == 0] = 0
     depth[mask == 0] = 0
 
     cloud = utils.rgbd2ptcloud(img, depth, sample["intrinsics"])
-    # box = list(utils.compute_axis_aligned_bbs([cloud]).values())
+    box = list(utils.compute_axis_aligned_bbs([cloud]).values())
 
     # dummy cloud for the test
-    # rot_cloud = deepcopy(cloud)
-    # rot_cloud.paint_uniform_color([0, 1, 0])
+    rot_cloud = deepcopy(cloud)
+    rot_cloud.paint_uniform_color([0, 1, 0])
 
     # test rotation
     # theta = np.deg2rad(30)
     # theta = np.deg2rad(-30)
     # R = np.array([[1, 0, 0],
-    # [0, np.cos(theta), -np.sin(theta)], [0, np.sin(theta), np.cos(theta)]])
+    #     [0, np.cos(theta), -np.sin(theta)], [0, np.sin(theta), np.cos(theta)]])
     # rot_cloud.rotate(R)
 
     # visualize two clouds before alignment
-    # vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
+    vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
 
     # align
-    R = align_cloud_RANSAC(cloud)
-    # rot_cloud.rotate(R)
-
-    cloud = utils.rgbd2ptcloud(sample["image"], sample["depth"], sample["intrinsics"])
-    rot_cloud = deepcopy(cloud)
-    rot_cloud.paint_uniform_color([0, 1, 0])
-
-    vis_utils.plot_ptcloud([cloud, rot_cloud])
+    R, t = align_cloud_RANSAC(rot_cloud)
 
     rot_cloud.rotate(R)
+    rot_cloud.translate(t)
+
+    # vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
+
+    transformed_cloud.rotate(R)
+    transformed_cloud.translate(t)
+    # vis_utils.plot_ptcloud([orig_cloud, transformed_cloud])
+    print(R)
+    print(t)
 
     # visualize the cloud after alignment
-    vis_utils.plot_ptcloud([cloud, rot_cloud])
+    # vis_utils.plot_ptcloud([cloud, rot_cloud])
     # vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
 
 
@@ -476,12 +483,11 @@ def main():
     config_path = "./configs/debug_config.yaml"
     config = load_yaml(config_path)
     reader = get_instance(readers, "reader", config)
-    seq_id, frame_id = "MOT16-14", 325
+    seq_id, frame_id = "MOT16-14", 350
     sample = reader.read_sample(
         seq_id,
         frame_id,
     )
-    print(sample.keys())
     # print(sample.keys())
     # profile_image(sample)
     # profile_panoptic(sample)
@@ -492,9 +498,9 @@ def main():
     # profile_depth_panoptic(sample)
     # profile_egomotion()
     # profile_egomotion_PCA()
-    # profile_floor_alignment(sample)
+    profile_floor_alignment(sample)
     # profile_cloud_vertical_alignment(sample)
-    profile_cloud_vertical_2d_alignment(sample)
+    # profile_cloud_vertical_2d_alignment(sample)
 
 
 if __name__ == "__main__":
