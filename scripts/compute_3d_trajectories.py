@@ -1,5 +1,4 @@
 """ Splits motsynth dataset into train, validation and test"""
-import logging
 from pathlib import Path
 
 import click
@@ -10,10 +9,7 @@ from tqdm import tqdm
 from mots_tracker import readers, utils
 from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.trackers.tracker_helpers import depth_median_filter
-
-_logger = logging.getLogger(__name__)
-
-SKEWED_SEQUENCES = {"MOT16-03", "MOT16-04"}
+from mots_tracker.readers.mot16_reader import DYNAMIC_SEQUENCES
 
 
 def compute_clouds(sample: dict, rotation: np.ndarray, translation: np.ndarray) -> dict:
@@ -25,8 +21,7 @@ def compute_clouds(sample: dict, rotation: np.ndarray, translation: np.ndarray) 
     """
 
     depth = sample["depth"].copy()
-    depth[utils.compute_depth_gradient(depth) > 30] = 0
-
+    # depth[utils.compute_depth_gradient(depth) > 30] = 0
     img_patches = utils.patch_masks(sample["image"], sample["instance_masks"])
     depth_patches = utils.patch_masks(depth, sample["instance_masks"])
     clouds = [
@@ -35,7 +30,7 @@ def compute_clouds(sample: dict, rotation: np.ndarray, translation: np.ndarray) 
         )
         for img_patch, depth_patch in zip(img_patches, depth_patches)
     ]
-
+    clouds = [c for c in clouds if c.has_points()]
     for cloud in clouds:
         cloud.rotate(rotation)
         cloud.translate(translation)
@@ -51,7 +46,7 @@ def compute_cloud_params(clouds: list) -> tuple:
     """
     medians = np.array([np.median(np.asarray(cld.points), axis=0) for cld in clouds])
     heights = [
-        abs(np.asarray(cloud.points)[:, 2].max() - np.asarray(cloud.points)[:, 2].min())
+        abs(np.asarray(cloud.points)[:, 1].max() - np.asarray(cloud.points)[:, 1].min())
         for cloud in clouds
     ]
     return medians, heights
@@ -88,39 +83,44 @@ def main(config_path, output_path, floor_alignment_path):
     reader = get_instance(readers, "reader", config)
     filename = str(output_path / "trajectories.csv")
 
-    all_trajectories = []
-    for seq_id in config["reader"]["args"]["seq_ids"]:
+    for seq_id in config["reader"]["args"]["seq_ids"][1:]:
+        
+        if DYNAMIC_SEQUENCES[seq_id]:
+            continue 
 
+        filename = str(output_path / "{}_trajectories.csv".format(seq_id))
         seq_trajectory = []
         rotations, translations = None, None
         if floor_alignment_path is not None:
-            rotations = np.load("{}_floor_rotations.npy".format(seq_id))
-            translations = np.load("{}_floor_translations.npy".format(seq_id))
+            rotations = np.load("{}/{}_floor_rotations.npy".format(
+                floor_alignment_path, seq_id))
+            translations = np.load("{}{}_floor_translations.npy".format(
+                floor_alignment_path, seq_id))
 
         print("Processing", seq_id)
         for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"])):
             sample = reader.read_sample(seq_id, frame_id)
-            if seq_id in SKEWED_SEQUENCES and rotations and translations:
+            if rotations is not None and translations is not None:
                 clouds = compute_clouds(
                     sample, rotations[frame_id], translations[frame_id]
                 )
             else:
                 clouds = compute_clouds(sample, np.eye(3), np.zeros(3))
             medians, heights = compute_cloud_params(clouds)
-            for m, h in zip(medians, heights):
+            for i, (m, h) in enumerate(zip(medians, heights)):
                 seq_trajectory.append(
-                    {
+                    {   
+                        "mask_id": i + 1,
                         "seq_id": seq_id,
                         "frame_id": frame_id,
-                        "x": m[0],
-                        "y": m[1],
-                        "z": m[2],
+                        "median_x": m[0],
+                        "median_y": m[1],
+                        "median_z": m[2],
                         "height": h,
                     }
                 )
-        all_trajectories.extend(seq_trajectory)
-    df = pd.DataFrame(all_trajectories)
-    df.to_csv(filename)
+        df = pd.DataFrame(seq_trajectory)
+        df.to_csv(filename)
 
 
 if __name__ == "__main__":
