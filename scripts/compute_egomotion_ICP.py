@@ -8,19 +8,9 @@ import numpy as np
 import open3d as o3d
 from tqdm import tqdm
 
-from mots_tracker import readers, vis_utils
+from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import get_instance, load_yaml
 from mots_tracker.readers.mot16_reader import DYNAMIC_SEQUENCES
-
-_logger = logging.getLogger(__name__)
-
-
-def get_gradient(depth):
-    depth = depth.copy()
-    sobelx = cv2.Sobel(depth, cv2.CV_64F, 1, 0, ksize=5)
-    sobely = cv2.Sobel(depth, cv2.CV_64F, 0, 1, ksize=5)
-    gradient = abs(sobelx + sobely)
-    return gradient
 
 
 def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
@@ -43,8 +33,8 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     source_img, target_img = source_sample["image"], target_sample["image"]
 
     # remove unstable depth regions
-    source_gradient = get_gradient(source_depth)
-    target_gradient = get_gradient(target_depth)
+    source_gradient = utils.compute_depth_gradient(source_depth)
+    target_gradient = utils.compute_depth_gradient(target_depth)
     grad_thres = 30
 
     source_depth[source_gradient > grad_thres] = 0
@@ -69,8 +59,6 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     target_img[target_depth > depth_thres] = 0
     target_depth[target_depth > depth_thres] = 0
 
-    print(source_img.shape, target_img.shape)
-    print(source_depth.shape, target_depth.shape)
     vis_utils.plot_image(source_img)
     vis_utils.plot_image(target_img)
     # ICP
@@ -101,11 +89,11 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
         depth_trunc=1e6,
     )
 
-    success, transformation, _ = o3d.odometry.compute_rgbd_odometry(
+    _, transformation, _ = o3d.odometry.compute_rgbd_odometry(
         source_rgbd, target_rgbd, intrinsics
     )
 
-    return success, transformation
+    return transformation
 
 
 @click.command()
@@ -141,13 +129,8 @@ def main(config_path, output_path):
         for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"] - 1)):
             source_sample = reader.read_sample(seq_id, frame_id)
             target_sample = reader.read_sample(seq_id, frame_id + 1)
-            suc, egomotion = compute_egomotion(source_sample, target_sample)
-            np.set_printoptions(suppress=True, precision=3)
-            print(suc)
-            print(egomotion)
-            break
+            egomotion = compute_egomotion(source_sample, target_sample)
             transformations.append(egomotion)
-        break
         transformations = np.array(transformations)
         np.save(filename, transformations)
 
