@@ -91,41 +91,25 @@ def main(config_path, output_path):
     reader = get_instance(readers, "reader", config)
     for seq_id in config["reader"]["args"]["seq_ids"]:
 
-        if not DYNAMIC_SEQUENCES[seq_id]:
+        if DYNAMIC_SEQUENCES[seq_id]:
             continue
 
         print("Processing", seq_id)
         filename = "{}_egomotion.npy".format(seq_id)
         filename = str(output_path / filename)
         rotaitons, translations = [], []
-        for frame_id in tqdm(range(350, reader.sequence_info[seq_id]["length"])):
+        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"])):
             sample = reader.read_sample(seq_id, frame_id)
             R, t = compute_floor_transform(sample)
-
-            cloud = utils.rgbd2ptcloud(
-                sample["image"], sample["depth"], sample["intrinsics"]
-            )
-            from copy import deepcopy
-
-            cloud_rot = deepcopy(cloud)
-            cloud_rot.paint_uniform_color([0, 1, 0])
-
             rotaitons.append(R)
             translations.append(t)
 
-            cloud_rot.rotate(R)
-            cloud_rot.translate(t)
-
-            from mots_tracker import vis_utils
-
-            vis_utils.plot_ptcloud([cloud_rot, cloud], True)
-            break
-        break
-
         rotaitons = np.array(rotaitons)
         translations = np.array(translations)
-        np.save("{}_floor_rotations.npy".format(seq_id), rotaitons)
-        np.save("{}_floor_translations.npy".format(seq_id), translations)
+        np.save(str(
+            output_path / "{}_floor_rotations.npy".format(seq_id)), rotaitons)
+        np.save(str(
+            output_path / "{}_floor_translations.npy".format(seq_id)), translations)
 
 
 if __name__ == "__main__":
