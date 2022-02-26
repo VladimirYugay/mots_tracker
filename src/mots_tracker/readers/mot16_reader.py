@@ -8,6 +8,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from mots_tracker import utils
 
@@ -95,7 +96,7 @@ class MOT16Reader(object):
         self.depth_path = assign_path(depth_path)
         self.dets_path = dets_path
         self.panoptic_path = panoptic_path
-        self.instance_segmentation_path = instance_segmentation_path
+        self.instance_segmentation_path = assign_path(instance_segmentation_path)
         self.annotations_path = annotations_path
         self.catgoery2class_json_path = catgoery2class_json_path
         self.metadata_path = metadata_path
@@ -240,14 +241,11 @@ class MOT16Reader(object):
         instance_path = str(
             self.instance_segmentation_path / seq_id / str(file_id + ".png")
         )
-        img = utils.load_image(instance_path, as_numpy=True)
-        img = utils.resize_img(img, self.shape)
+        img = Image.open(instance_path).convert("RGBA")
         img = np.array(img)
         colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
         masks = np.zeros((colors.shape[0], img.shape[0], img.shape[1]))
         for i, color in enumerate(colors):
-            if np.all(color == 0):  # ignore background color
-                continue
             ped_mask = np.all(img == color, axis=-1)
             masks[i, ...] = ped_mask
         return masks
