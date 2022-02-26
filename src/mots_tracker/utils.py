@@ -228,6 +228,7 @@ def save_img(img, path):
     if 0 <= img.mean() <= 1.0:
         img = (img * 255).astype(np.uint8)
     img_type = "RGB" if len(img.shape) == 3 else "L"
+    print(img.shape, img.dtype)
     img = Image.fromarray(img, mode=img_type)
     img.save(path)
 
@@ -425,7 +426,7 @@ def rigid_transform_3D(A, B, scale) -> np.ndarray:
     # special reflection case
     if np.linalg.det(R) < 0:
 
-        Vt[2, :] *= -1
+        Vt[d - 1, :] *= -1
         R = Vt.T * U.T
 
     if scale:
