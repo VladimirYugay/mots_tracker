@@ -35,8 +35,8 @@ def get_floor_transform(cloud):
     if c > 0:  # plane looks up
         rotation_angle = -rotation_angle
     R = cloud.get_rotation_matrix_from_xyz(np.array([rotation_angle, 0, 0]))
-    inlier_cloud.rotate(R)
-    shift_num = np.asanyarray(inlier_cloud.points)[:, 1].min()
+    inlier_cloud.rotate(R, center=True)
+    shift_num = np.asanyarray(inlier_cloud.points)[:, 1].mean()
     t = np.array([0, -shift_num, 0])
     return R, t
 
@@ -106,10 +106,10 @@ def main(config_path, output_path):
 
         rotaitons = np.array(rotaitons)
         translations = np.array(translations)
-        np.save(str(
-            output_path / "{}_floor_rotations.npy".format(seq_id)), rotaitons)
-        np.save(str(
-            output_path / "{}_floor_translations.npy".format(seq_id)), translations)
+        np.save(str(output_path / "{}_floor_rotations.npy".format(seq_id)), rotaitons)
+        np.save(
+            str(output_path / "{}_floor_translations.npy".format(seq_id)), translations
+        )
 
 
 if __name__ == "__main__":
