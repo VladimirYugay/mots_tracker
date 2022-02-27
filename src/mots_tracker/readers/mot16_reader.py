@@ -1,6 +1,7 @@
 """ module for reading mots ground truth data """
 import itertools
 import json
+import os
 import pickle
 from argparse import Namespace
 from configparser import ConfigParser
@@ -322,7 +323,7 @@ class MOT16Reader(object):
         )
         return image
 
-    def _read_optical_flow(self, seq_id, frame_id):
+    def _read_optical_flow(self, seq_id, frame_id, offset=15):
         """Reads correspondences between current frame and the next frame
         Args:
             seq_id: sequence id
@@ -340,8 +341,11 @@ class MOT16Reader(object):
         if not self.sequence_info[seq_id]["dynamic"]:
             return None
 
-        file_name = "{}_to_{}_flow.flo".format(frame_id + 1, frame_id + 2)
-        file = open(str(self.optical_flow_path / seq_id / file_name), "r")
+        file_name = "{}_to_{}_flow.flo".format(frame_id + 1, frame_id + 1 + offset)
+        file_path = str(self.optical_flow_path / seq_id / file_name)
+        if not os.path.exists(file_path):
+            return None
+        file = open(file_path, "r")
         assert np.fromfile(file, np.float32, count=1)[0] == TAG_FLOAT
         width = np.fromfile(file, np.int32, count=1)[0]
         height = np.fromfile(file, np.int32, count=1)[0]
