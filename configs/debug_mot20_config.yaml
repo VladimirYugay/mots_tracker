@@ -1,0 +1,14 @@
+output_path: "./data/output/test"
+cores: 1
+
+reader:
+  type: MOT20Reader
+  args:
+    root_path: "/home/vy/university/thesis/datasets/MOT20"
+    catgoery2class_json_path: "/home/vy/university/thesis/datasets/MOT20/MOT20_helper_code/classes2category.json"
+    metadata_path: "/home/vy/university/thesis/datasets/MOT20/MOT20_helper_code/metaDataClasses.pkl"
+    seq_ids: ["MOT20-01", "MOT20-02", "MOT20-03", "MOT20-04", "MOT20-05", "MOT20-06", "MOT20-07", "MOT20-08"]
+    # include_cats: ["pedestrian", "sky", "occluder_moving"]
+    # exclude_cats: ["pedestrian", "sky", "occluder_moving"]
+    include_cats: ["road", "pavement", "ground"]
+    # exclude_cats: ["pedestrian"]
