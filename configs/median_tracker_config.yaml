@@ -4,14 +4,14 @@ cores: 3
 reader:
  type: NewMOTSynthReader
  args:
-   data_path: "/home/vy/university/thesis/datasets/MOTSynth"
-   ann_path: "/home/vy/university/thesis/datasets/MOTSynth_annotations/all"
+   data_path: "/storage/local/yugay/datasets/MOTSynth/"
+   ann_path: "/storage/local/yugay/datasets/MOTSynth_annotations/all/"
    boxes_path: "gt/gt.txt"
    masks_path: "gt/gt_masks.txt"
    resize_shape: null
    depth_path: "gt_depth_new"
    egomotion_path: "egomotion"
-   split_path: "debug_split/test.txt"
+   split_path: "official_split/test.txt"
 
 
 # reader:

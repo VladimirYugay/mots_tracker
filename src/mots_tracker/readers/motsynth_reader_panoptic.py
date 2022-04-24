@@ -15,6 +15,10 @@ from configparser import ConfigParser
 from pathlib import Path
 
 import numpy as np
+from argparse import Namespace
+import pickle
+import itertools
+import json
 
 from mots_tracker import utils
 from mots_tracker.readers import reader_helpers
@@ -30,7 +34,7 @@ from mots_tracker.readers.reader_helpers import (
 INTRINSICS = np.array([[1158, 0, 960], [0, 1158, 540], [0, 0, 1]], dtype=np.float64)
 
 
-class NewMOTSynthReader(object):
+class MOTSynthReaderPanoptic(object):
     """ MOTSynth reader class """
 
     def __init__(
@@ -46,6 +50,12 @@ class NewMOTSynthReader(object):
         keypoints_3d_path: str = None,
         num_kpts=22,
         split_path: str = None,
+
+        panoptic_path: str = None,
+        catgoery2class_json_path=None,
+        metadata_path=None,
+        include_cats=None,
+        exclude_cats=None,
     ):
         """Reader constructor
         Args:
@@ -66,6 +76,107 @@ class NewMOTSynthReader(object):
         # keep cache only for one sequence since they're large
         self.cache = {}  # image names, box annotations, mask annotations
         self.sequence_info = self._init_sequence_info()
+
+        self.panoptic_path = panoptic_path
+        self.catgoery2class_json_path = catgoery2class_json_path
+        self.metadata_path = metadata_path
+        self.include_cats = include_cats
+        self.exclude_cats = exclude_cats
+
+        self.color_ids = []
+        self.category2class = {}
+        self.meta_data = None
+        self.color2coco = {}
+        self.category_colors = {}
+
+        self._init_metadata()
+        self._init_color_ids()
+        self._init_category2class()
+        self._init_color2coco()
+        self._init_category_colors()      
+
+    def _init_color_ids(self, step=1000000):
+        """ Initializes color ids """
+        palette = list(itertools.product(np.arange(1, 256), repeat=3))
+        self.color_ids = [palette[i::step] for i in range(step)]
+
+    def _init_category2class(self):
+        """ Initializes class to category mapping """
+        with open(self.catgoery2class_json_path) as json_file:
+            self.classes2category = json.load(json_file)
+
+    def _init_metadata(self):
+        """ Intializes meta_data on the panoptic classes """
+        with open(self.metadata_path, "rb") as pkl_file:
+            self.meta_data = Namespace(**pickle.load(pkl_file))
+
+    def _init_color2coco(self):
+        """ Initializes mapping of color to coco """
+        self.color_to_coco = {}
+        for stuff_class, stuff_color in zip(
+            self.meta_data.stuff_classes, self.meta_data.stuff_colors
+        ):
+            color = " ".join(str(e) for e in stuff_color)
+            self.color2coco[color] = stuff_class
+        for thing_class, thing_color in zip(
+            self.meta_data.thing_classes, self.meta_data.thing_colors
+        ):
+            color = " ".join(str(e) for e in thing_color)
+            self.color2coco[color] = thing_class
+
+    def _init_category_colors(self):
+        """ Initializes category colors dict """
+        self.category_colors = {
+            "sky": np.array([70, 130, 180]),
+            "pedestrian": np.array([255, 0, 0]),
+            "other": np.array([255, 215, 0]),
+            "occluder_moving": np.array([0, 100, 100]),
+            "occluder_static": np.array([0, 0, 230]),
+            "building": np.array([0, 255, 0]),
+            "road": np.array([50, 50, 50]),
+            "pavement": np.array([100, 100, 100]),
+            "ground": np.array([10, 200, 10]),
+        }
+
+
+    def read_panoptic_img(self, seq_id, frame_id):
+        """Reads depth map file
+        Args:
+            seq_id: sequence ud
+            frame_id: frame id
+        Returns:
+            np.ndarray: float depth map
+        """
+        if self.panoptic_path is None:
+            return None, None
+
+        img_path = self.sequence_info[seq_id]["img_paths"][frame_id]
+        panoptic_path = str(
+            Path(self.panoptic_path)
+            / seq_id
+            / str(img_path.parts[-1]).replace(".jpg", ".png")
+        )
+        img = utils.load_image(panoptic_path)
+        img = np.array(img)
+        colors = np.unique(img.reshape(-1, img.shape[2]), axis=0)
+        panoptic_img = np.zeros_like(img)
+        panoptic_mask = np.zeros((img.shape[0], img.shape[1]))
+        for color in colors:
+            color_str = " ".join(str(e) for e in color)
+            coco_class = self.color2coco.get(color_str, None)
+            if coco_class is None:
+                continue
+            category = self.classes2category[coco_class]
+            if self.include_cats and category not in self.include_cats:
+                continue
+            if self.exclude_cats and category in self.exclude_cats:
+                continue
+            final_color = self.category_colors[category]
+            color_indices = np.where(np.all(img == color, axis=-1))
+            panoptic_img[color_indices] = final_color
+            panoptic_mask[color_indices] = self.categories.index(category) + 1
+        return panoptic_img, panoptic_mask 
+
 
     def read_sample(self, seq_id, frame_id):
         """reads image and all annotations
@@ -88,6 +199,8 @@ class NewMOTSynthReader(object):
         intrinsics = INTRINSICS
         _, keypoints_2d = self._read_kpts(frame_id + 1, is_3d=False)
         _, keypoints_3d = self._read_kpts(frame_id + 1, is_3d=True)
+
+        panoptic_image, panoptic_mask = self.read_panoptic_img(seq_id, frame_id)
 
         if self.resize_shape is not None:
             width, height = image.size
@@ -115,6 +228,8 @@ class NewMOTSynthReader(object):
             "raw_masks": raw_masks,
             "intrinsics": intrinsics,
             "egomotion": egomotion,
+            "panoptic_image": panoptic_image,
+            "panoptic_mask": panoptic_mask
         }
 
     def _read_seg_masks(self, seq_id: str, frame_id: int) -> tuple:
@@ -138,7 +253,6 @@ class NewMOTSynthReader(object):
         valid_mask = (masks_data[:, 0] == frame_id) & (confidence > 0.3)
         relevant_ids = np.where(valid_mask)[0]
         masks_data = masks_data[valid_mask]
-        mask_ids = mask_ids[valid_mask]
         height = self.sequence_info[seq_id]["img_height"]
         width = self.sequence_info[seq_id]["img_width"]
         raw_masks = [None] * relevant_ids.shape[0]

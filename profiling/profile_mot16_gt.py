@@ -293,7 +293,7 @@ def get_plane_PCA(cloud):
     return normal_vector
 
 
-def align_cloud_RANSAC(cloud):
+def get_floor_transform(cloud):
     plane_model, inliers = cloud.segment_plane(
         distance_threshold=0.01, ransac_n=3, num_iterations=1000
     )
@@ -301,13 +301,14 @@ def align_cloud_RANSAC(cloud):
     a, b, c, d = plane_model
     plane_normal = np.array(plane_model[:3])
     xz_normal = np.array([0, 1, 0])
-    rotation_angle = vector_angle(xz_normal, plane_normal)
+    rotation_angle = utils.compute_angle(xz_normal, plane_normal)
     # define in which direction to rotate the plane
     if c > 0:  # plane looks up
         rotation_angle = -rotation_angle
     R = cloud.get_rotation_matrix_from_xyz(np.array([rotation_angle, 0, 0]))
-    inlier_cloud.rotate(R)
-    shift_num = np.asanyarray(inlier_cloud.points)[:, 1].min()
+    tmp = deepcopy(cloud)
+    tmp.rotate(R)
+    shift_num = np.asanyarray(tmp.points)[:, 1].min()
     t = np.array([0, -shift_num, 0])
     return R, t
 
@@ -350,21 +351,24 @@ def profile_floor_alignment(sample):
     # rot_cloud.rotate(R)
 
     # visualize two clouds before alignment
-    vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
+    tmp = cloud + rot_cloud
+    o3d.io.write_point_cloud('before_cloud2.pcd', tmp)
+    # vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
 
     # align
-    R, t = align_cloud_RANSAC(rot_cloud)
-
+    R, t = get_floor_transform(rot_cloud)
     rot_cloud.rotate(R)
     rot_cloud.translate(t)
+    tmp = cloud + rot_cloud
+    o3d.io.write_point_cloud('after_cloud2.pcd', tmp)    
 
     # vis_utils.plot_ptcloud([cloud, rot_cloud] + box)
 
-    transformed_cloud.rotate(R)
-    transformed_cloud.translate(t)
+    # transformed_cloud.rotate(R)
+    # transformed_cloud.translate(t)
     # vis_utils.plot_ptcloud([orig_cloud, transformed_cloud])
-    print(R)
-    print(t)
+    # print(R)
+    # print(t)
 
     # visualize the cloud after alignment
     # vis_utils.plot_ptcloud([cloud, rot_cloud])
@@ -480,17 +484,17 @@ def profile_cloud_vertical_2d_alignment(sample):
 
 
 def main():
-    config_path = "./configs/debug_config.yaml"
+    config_path = "./configs/debug_config_remote.yaml"
     config = load_yaml(config_path)
     reader = get_instance(readers, "reader", config)
-    seq_id, frame_id = "MOT16-14", 350
+    seq_id, frame_id = "MOT16-03", 0
     sample = reader.read_sample(
         seq_id,
         frame_id,
     )
     # print(sample.keys())
-    # profile_image(sample)
-    # profile_panoptic(sample)
+    profile_image(sample)
+    profile_panoptic(sample)
     # profile_depth(sample)
     # profile_instance_segmentation(sample)
     # profile_scene_cloud(sample)
@@ -498,7 +502,7 @@ def main():
     # profile_depth_panoptic(sample)
     # profile_egomotion()
     # profile_egomotion_PCA()
-    profile_floor_alignment(sample)
+    # profile_floor_alignment(sample)
     # profile_cloud_vertical_alignment(sample)
     # profile_cloud_vertical_2d_alignment(sample)
 

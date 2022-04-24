@@ -14,7 +14,7 @@ from PIL import Image
 from mots_tracker import utils
 
 MIN_DEPTH = 0.1  # in meters
-MAX_DEPTH = 100  # in meters
+MAX_DEPTH = 1e6  # in meters
 
 DEFAULT_INTRINSICS = np.array(
     [[1539.579, 0, 940.66], [0, 1542.185, 556.894], [0, 0, 1]]
@@ -323,7 +323,7 @@ class MOT16Reader(object):
         )
         return image
 
-    def _read_optical_flow(self, seq_id, frame_id, offset=15):
+    def _read_optical_flow(self, seq_id, frame_id, offset=1):
         """Reads correspondences between current frame and the next frame
         Args:
             seq_id: sequence id

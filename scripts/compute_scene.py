@@ -275,10 +275,11 @@ def main(config_path, output_path):
         print("Processing", seq_id)
         filename = "{}_egomotion.npy".format(seq_id)
         filename = str(output_path / filename)
-        egomotion = np.load(
-            "/home/vy/university/thesis/datasets/MOT16\
-                /egomotion_optical_flow/MOT16-14_egomotion.npy"
-        )
+        # egomotion = np.load(
+        #     "/home/vy/university/thesis/datasets/MOT16\
+        #         /egomotion_optical_flow/MOT16-14_egomotion.npy"
+        # )
+        egomotion = np.load("/usr/stud/yugay/MOT16/egomotion_optical_flow/MOT16-14_egomotion.npy")
         transformations = []
         T = np.eye(4)
         clouds = []
@@ -307,13 +308,16 @@ def main(config_path, output_path):
                 )
                 cloud.transform(T)
 
-                clouds.append(cloud)
+                if not clouds:
+                    clouds = cloud
+                else:
+                    clouds += cloud
             T = T.dot(np.linalg.inv(egomotion[frame_id]))
 
             # break
             # transformations.append(egomotion)
-
-        vis_utils.plot_ptcloud(clouds, show_frame=True)
+        o3d.io.write_point_cloud('cloud.pcd', clouds)
+        # vis_utils.plot_ptcloud(clouds, show_frame=True)
         break
         transformations = np.array(transformations)
         np.save(filename, transformations)

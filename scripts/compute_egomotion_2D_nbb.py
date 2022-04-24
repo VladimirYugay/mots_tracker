@@ -38,22 +38,22 @@ def compute_egomotion(sample_left: dict, sample_right: dict) -> np.ndarray:
     # plt.show()
     # return
 
-    height, width = panoptic_left.shape
+    # height, width = panoptic_left.shape
     # filter based on panoptic
-    mask = np.ones((height, width), dtype=np.int8)
-    mask[np.logical_or(panoptic_left == 0, panoptic_right == 0)] = 0
-    # filter based on depth
-    max_depth = 50
-    mask[np.logical_or(sample_left["depth"] > max_depth, sample_right["depth"] > max_depth)] = 0
-    # filter based on stable gradient
-    grad_threshold = 30  # since lower kills too much rigid objects around
-    left_gradient = utils.compute_depth_gradient(sample_left["depth"])
-    right_gradient = utils.compute_depth_gradient(sample_right["depth"])
-    mask[np.logical_or(left_gradient > grad_threshold, right_gradient > grad_threshold)] = 0
+    # mask = np.ones((height, width), dtype=np.int8)
+    # mask[np.logical_or(panoptic_left == 0, panoptic_right == 0)] = 0
+    # # filter based on depth
+    # max_depth = 50
+    # mask[np.logical_or(sample_left["depth"] > max_depth, sample_right["depth"] > max_depth)] = 0
+    # # filter based on stable gradient
+    # grad_threshold = 30  # since lower kills too much rigid objects around
+    # left_gradient = utils.compute_depth_gradient(sample_left["depth"])
+    # right_gradient = utils.compute_depth_gradient(sample_right["depth"])
+    # mask[np.logical_or(left_gradient > grad_threshold, right_gradient > grad_threshold)] = 0
     # filter keypoints 
-    valid_pts = np.logical_and(mask[lrow, lcol] == 1, mask[rrow, rcol] == 1)
-    lrow, lcol = lrow[valid_pts], lcol[valid_pts]
-    rrow, rcol = rrow[valid_pts], rcol[valid_pts]
+    # valid_pts = np.logical_and(mask[lrow, lcol] == 1, mask[rrow, rcol] == 1)
+    # lrow, lcol = lrow[valid_pts], lcol[valid_pts]
+    # rrow, rcol = rrow[valid_pts], rcol[valid_pts]
 
 
     empty_img = np.zeros_like(sample_left["image"])
@@ -118,7 +118,7 @@ def main(config_path, output_path):
         filename = "{}_egomotion.npy".format(seq_id)
         filename = str(output_path / filename)
         transformations = []
-        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"] - 1)):
+        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"] - 2)):
             sample_left = reader.read_sample(seq_id, frame_id)
             sample_right = reader.read_sample(seq_id, frame_id + 1)
             egomotion = compute_egomotion(sample_left, sample_right)

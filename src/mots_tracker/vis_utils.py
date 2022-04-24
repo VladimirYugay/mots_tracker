@@ -96,7 +96,7 @@ def plot_image(image, image_type="RGB"):
     if image_type != "RGB":
         color_map = plt.cm.get_cmap("plasma").reversed()
     plt.imshow(image, cmap=color_map)
-    plt.show()  # display it
+    # plt.show()  # display it
     return plt
 
 
@@ -132,7 +132,8 @@ def plot_image_masks(image, masks, mask_ids=None):
         else:
             img[mask == 1] = 0
     plt.imshow(img)
-    plt.show()
+    plt.savefig("test.png")
+    # plt.show()
 
 
 def plot_image_2d_keypoints(image, keypoints, keypoint_ids=None):

@@ -167,6 +167,9 @@ def main(config_path, floop_alignment_path, output_path):
 
         if not DYNAMIC_SEQUENCES[seq_id]:
             continue
+        
+        if seq_id != "MOT16-14":
+            continue
 
         rotations = np.load(
             str(floop_alignment_path / "{}_floor_rotations.npy".format(seq_id))
@@ -179,10 +182,14 @@ def main(config_path, floop_alignment_path, output_path):
         filename = "{}_egomotion.npy".format(seq_id)
         filename = str(output_path / filename)
         transformations = []
-        for frame_id in tqdm(range(0, reader.sequence_info[seq_id]["length"] - 1)):
+        offset = 1 
+        for frame_id in tqdm(range(0, reader.sequence_info[seq_id]["length"], offset)):
+
+            if frame_id + offset > reader.sequence_info[seq_id]["length"] - 1:
+                continue
 
             source_sample = reader.read_sample(seq_id, frame_id)
-            target_sample = reader.read_sample(seq_id, frame_id + 15)
+            target_sample = reader.read_sample(seq_id, frame_id + offset)
 
             source_sample["R_floor"] = rotations[frame_id]
             source_sample["t_floor"] = translations[frame_id]

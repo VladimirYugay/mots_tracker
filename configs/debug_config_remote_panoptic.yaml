@@ -27,14 +27,25 @@ cores: 1
 #     conf_thres: -1
 
 reader:
-  type: MOTSynthReaderPanoptic
+  type: MOT16Reader
   args:
-    
+
+
+   data_path: "/storage/local/yugay/datasets/MOTSynth/"
+   ann_path: "/storage/local/yugay/datasets/MOTSynth_annotations/all/"
+   boxes_path: "gt/gt.txt"
+   masks_path: "gt/gt_masks.txt"
+   resize_shape: null
+   depth_path: "gt_depth_new"
+   egomotion_path: "egomotion"
+   keypoints_2d_path: "gt/keypoints_2d.txt"
+   keypoints_3d_path: "gt/keypoints_3d.txt"
+   split_path: "debug_split/test.txt"
+
     panoptic_path: "/usr/stud/yugay/MOT16/panoptic"
     catgoery2class_json_path: "/usr/stud/yugay/MOT16_helper_code/classes2category.json"
     metadata_path: "/usr/stud/yugay/MOT16_helper_code/metaDataClasses.pkl"
     include_cats: ["ground", "pavement", "road"]
-    shape: [480, 640]
     # exclude_cats: ["pedestrian", "sky", "occluder_moving"]
 
 

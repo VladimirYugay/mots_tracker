@@ -42,7 +42,7 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     mask[np.logical_or(hflow == 1e9, vflow == 1e9)] = 0
 
     # filter too far depth regions
-    max_depth = 80
+    max_depth = 1e6
     mask[
         np.logical_or(
             source_sample["depth"] > max_depth, target_sample["depth"] > max_depth
@@ -62,7 +62,7 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     trows, tcols = srows + vdisp, scols + hdisp
 
     # remove the out of boundaries pixels
-    valid_pixels = (tcols < width) & (trows < height)
+    valid_pixels = (tcols < width) & (trows < height) & (tcols >= 0) & (trows >= 0)
     srows, scols = srows[valid_pixels], scols[valid_pixels]
     trows, tcols = trows[valid_pixels], tcols[valid_pixels]
 
@@ -79,17 +79,13 @@ def compute_egomotion(source_sample: dict, target_sample: dict) -> np.ndarray:
     )
 
     # align both point clouds to the ground
-    # R_source, t_source = source_sample["R_floor"], source_sample["t_floor"]
-    # source_cloud.rotate(R_source)
-    # source_cloud.translate(t_source)
-    # source_shift = np.asarray(source_cloud.points)[:, 1].min()
-    # source_cloud.translate([0, -source_shift, 0])
+    R_source, t_source = source_sample["R_floor"], source_sample["t_floor"]
+    source_cloud.translate(t_source)
+    source_cloud.rotate(R_source, center=True)
 
-    # R_target, t_target = target_sample["R_floor"], target_sample["t_floor"]
-    # target_cloud.rotate(R_target)
-    # target_cloud.translate(t_target)
-    # target_shift = np.asarray(target_cloud.points)[:, 1].min()
-    # target_cloud.translate(np.array([0, -target_shift, 0]))
+    R_target, t_target = target_sample["R_floor"], target_sample["t_floor"]
+    target_cloud.translate(t_target)    
+    target_cloud.rotate(R_target, center=True)
 
     # select correspondences
     source_cloud_pts = np.asarray(source_cloud.points)
@@ -148,8 +144,14 @@ def main(config_path, floop_alignment_path, output_path):
     reader = get_instance(readers, "reader", config)
     for seq_id in config["reader"]["args"]["seq_ids"]:
 
-        if not DYNAMIC_SEQUENCES[seq_id]:
-            continue
+        # if seq_id not in ["MOT16-05", "MOT16-06"]:
+        #     continue
+
+        # if seq_id not in ["MOT16-07", "MOT16-10", "MOT16-13", "MOT16-14"]:
+        #     continue        
+
+        if seq_id not in ["MOT16-11", "MOT16-12"]:
+            continue                    
 
         rotations = np.load(
             str(floop_alignment_path / "{}_floor_rotations.npy".format(seq_id))
@@ -162,10 +164,10 @@ def main(config_path, floop_alignment_path, output_path):
         filename = "{}_egomotion.npy".format(seq_id)
         filename = str(output_path / filename)
         transformations = []
-        for frame_id in tqdm(range(0, reader.sequence_info[seq_id]["length"] - 1)):
+        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"] - 1)):
 
             source_sample = reader.read_sample(seq_id, frame_id)
-            target_sample = reader.read_sample(seq_id, frame_id + 30)
+            target_sample = reader.read_sample(seq_id, frame_id + 1)
 
             source_sample["R_floor"] = rotations[frame_id]
             source_sample["t_floor"] = translations[frame_id]
@@ -174,31 +176,6 @@ def main(config_path, floop_alignment_path, output_path):
 
             egomotion = compute_egomotion(source_sample, target_sample)
             transformations.append(egomotion)
-
-            sc = utils.rgbd2ptcloud(
-                source_sample["image"],
-                source_sample["depth"],
-                source_sample["intrinsics"],
-            )
-            tc = utils.rgbd2ptcloud(
-                target_sample["image"],
-                target_sample["depth"],
-                target_sample["intrinsics"],
-            )
-            # tc.paint_uniform_color([0, 1, 0])
-
-            vis_utils.plot_ptcloud([sc, tc], True)
-
-            tc.transform(egomotion)
-
-            vis_utils.plot_ptcloud([sc, tc], True)
-
-            np.set_printoptions(suppress=True, precision=3)
-            print(egomotion)
-            break
-
-        break
-
         transformations = np.array(transformations)
         np.save(filename, transformations)
 

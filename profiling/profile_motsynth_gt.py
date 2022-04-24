@@ -3,6 +3,7 @@ from functools import partial
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from mots_tracker import readers, utils, vis_utils
 from mots_tracker.io_utils import get_instance, load_yaml
@@ -102,12 +103,51 @@ def main():
     config_path = "./configs/median_tracker_config.yaml"
     config = load_yaml(config_path)
     reader = get_instance(readers, "reader", config)
-    seq_id, frame_id = "045", 295
+    seq_id, frame_id = "002", 0
     sample = reader.read_sample(seq_id, frame_id)
-    sample["masks"] = sample["masks"][[0, 1]]
     # profile_new_depth_boxes(sample)
+    ids = sample["mask_ids"]
+    target_id = 399453
+    print(ids[8])
+    mask = sample["masks"][ids == 399453]
     # vis_utils.plot_image_masks(
-    #   sample["image"], sample["masks"], range(len(sample["masks"])))
+    #     sample["image"], sample["masks"], np.arange(ids.shape[0]))
+    # vis_utils.plot_image_masks(
+    #     sample["image"], mask)    
+
+    stats = []
+    for frame_id in tqdm(range(0, 240)):
+        sample = reader.read_sample(seq_id, frame_id)
+        mask = sample["masks"][sample["mask_ids"] == target_id][0]
+        depth_patch = sample["depth"]
+        depth_patch[mask == 0] = 0
+        q5 = np.percentile(depth_patch[depth_patch != 0], 5)
+        q95 = np.percentile(depth_patch[depth_patch != 0], 95)
+        depth_patch[depth_patch < q5] = 0
+        depth_patch[depth_patch > q95] = 0 
+        
+        img = sample["image"]
+        img[depth_patch == 0] = 0
+
+        cloud = utils.rgbd2ptcloud(img, depth_patch, sample["intrinsics"])
+        cloud = np.asarray(cloud.points)
+
+        stats.append([
+            np.mean(cloud), 
+            np.median(cloud), 
+            np.std(cloud), 
+            np.percentile(cloud, 25),
+            np.percentile(cloud, 75)])
+
+    import matplotlib.pyplot as plt 
+    stats = np.array(stats)
+    x = np.arange(stats.shape[0])
+    names = ["mean", "median", "std", "q25", "q75"]
+    for i, name in enumerate(names):
+        plt.plot(x, stats[:, i], label=name)
+    plt.legend()
+    plt.savefig('stats')
+
     # vis_utils.plot_image_boxes(sample["image"], sample["boxes"][[0, 1]], np.arange(2))
 
     # vis_utils.plot_image_masks(sample['image'], sample['masks'])

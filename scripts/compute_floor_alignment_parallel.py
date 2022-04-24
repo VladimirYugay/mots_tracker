@@ -1,5 +1,5 @@
 """ Splits motsynth dataset into train, validation and test"""
-from contextlib import suppress
+from multiprocessing import Pool
 from pathlib import Path
 
 import click
@@ -9,6 +9,31 @@ from tqdm import tqdm
 
 from mots_tracker import readers, utils
 from mots_tracker.io_utils import get_instance, load_yaml
+
+
+def multi_run_wrapper(args):
+    """ Unpacks argument for running on multiple cores """
+    return compute_floor_alignment_parallel(*args)
+
+
+def compute_floor_alignment_parallel(reader, seq_id, output_path):
+
+    rotaitons, translations = [], []
+    for frame_id in range(reader.sequence_info[seq_id]["length"]):
+        print("Sequence: {}, frame: {} out of {}".format(
+            seq_id, frame_id, reader.sequence_info[seq_id]["length"]
+        ))
+        sample = reader.read_sample(seq_id, frame_id)
+        R, t = compute_floor_transform(sample)
+        rotaitons.append(R)
+        translations.append(t)
+
+    rotaitons = np.array(rotaitons)
+    translations = np.array(translations)
+    np.save(str(output_path / "{}_floor_rotations.npy".format(seq_id)), rotaitons)
+    np.save(
+        str(output_path / "{}_floor_translations.npy".format(seq_id)), translations
+    )
 
 
 def get_floor_transform(cloud):
@@ -78,21 +103,13 @@ def main(config_path, output_path):
     config = load_yaml(config_path)
     output_path = Path(output_path)
     reader = get_instance(readers, "reader", config)
-    for seq_id in config["reader"]["args"]["seq_ids"]:
-        print("Processing", seq_id)
-        rotaitons, translations = [], []
-        for frame_id in tqdm(range(reader.sequence_info[seq_id]["length"])):
-            sample = reader.read_sample(seq_id, frame_id)
-            R, t = compute_floor_transform(sample)
-            rotaitons.append(R)
-            translations.append(t)
-
-        rotaitons = np.array(rotaitons)
-        translations = np.array(translations)
-        np.save(str(output_path / "{}_floor_rotations.npy".format(seq_id)), rotaitons)
-        np.save(
-            str(output_path / "{}_floor_translations.npy".format(seq_id)), translations
-        )
+    pool = Pool(4)
+    # print("Running on {} cores".format(config.get("cores", 4)))
+    args = [
+        (reader, seq_id, output_path) 
+        for seq_id in config["reader"]["args"]["seq_ids"]
+    ]    
+    pool.map(multi_run_wrapper, args)
 
 
 if __name__ == "__main__":
